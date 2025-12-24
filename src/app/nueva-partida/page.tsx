@@ -41,7 +41,7 @@ interface GameDraft {
   players: Array<{
     player_id: string;
     final_chips: string;
-    rebuys: number;
+    rebuys: string | number; // string para nuevo formato, number para compatibilidad
   }>;
   notes: string;
   gameDate: string;
@@ -145,7 +145,8 @@ export default function NuevaPartidaPage() {
             player_id: dp.player_id,
             player: player,
             final_chips: dp.final_chips,
-            rebuys: dp.rebuys,
+            // Convertir a string si es número (compatibilidad con borradores viejos)
+            rebuys: typeof dp.rebuys === 'number' ? dp.rebuys.toString() : dp.rebuys,
           });
         }
       }
@@ -209,7 +210,7 @@ export default function NuevaPartidaPage() {
       player_id: player.id,
       player: player,
       final_chips: '',
-      rebuys: 0,
+      rebuys: '0',
     }]);
     setShowPlayerDropdown(false);
   };
@@ -230,18 +231,19 @@ export default function NuevaPartidaPage() {
     const updateRebuys = (playerId: string, delta: number) => {
       setSelectedPlayers(selectedPlayers.map(p => {
         if (p.player_id === playerId) {
-          const newRebuys = Math.max(0, Math.round((p.rebuys + delta) * 10) / 10);
-          return { ...p, rebuys: newRebuys };
+          const currentValue = parseFloat(p.rebuys) || 0;
+          const newRebuys = Math.max(0, Math.round((currentValue + delta) * 10) / 10);
+          return { ...p, rebuys: newRebuys.toString() };
         }
         return p;
       }));
     };
 
     // Establecer rebuys directamente (para input manual)
-    const setRebuysDirectly = (playerId: string, value: number) => {
+    const setRebuysDirectly = (playerId: string, value: string) => {
       setSelectedPlayers(selectedPlayers.map(p => {
         if (p.player_id === playerId) {
-          return { ...p, rebuys: Math.max(0, value) };
+          return { ...p, rebuys: value };
         }
         return p;
       }));
@@ -264,14 +266,20 @@ export default function NuevaPartidaPage() {
     setCreatingPlayer(false);
   };
 
+  // Parsear rebuys de string a número
+  const parseRebuys = (rebuys: string): number => {
+    const normalized = rebuys.replace(',', '.');
+    return parseFloat(normalized) || 0;
+  };
+
   // Calcular fichas totales compradas por un jugador (buy-in + rebuys)
-  const getTotalChipsBought = (rebuys: number): number => {
+  const getTotalChipsBought = (rebuys: string): number => {
     const initial = parseFloat(buyIn) || 0;
-    return initial * (1 + rebuys);
+    return initial * (1 + parseRebuys(rebuys));
   };
 
   // Calcular ganancias/pérdidas (considerando rebuys)
-  const calculateProfit = (finalChips: string, rebuys: number): number => {
+  const calculateProfit = (finalChips: string, rebuys: string): number => {
     const chips = parseFloat(finalChips) || 0;
     const totalBought = getTotalChipsBought(rebuys);
     const value = parseFloat(chipValue) || 0;
@@ -279,7 +287,7 @@ export default function NuevaPartidaPage() {
   };
 
   // Calcular inversión total de un jugador en €
-  const calculateInvestment = (rebuys: number): number => {
+  const calculateInvestment = (rebuys: string): number => {
     const totalBought = getTotalChipsBought(rebuys);
     const value = parseFloat(chipValue) || 0;
     return totalBought * value;
@@ -322,7 +330,7 @@ export default function NuevaPartidaPage() {
       const playersData = selectedPlayers.map(p => ({
         player_id: p.player_id,
         final_chips: parseFloat(p.final_chips) || 0,
-        rebuys: p.rebuys,
+        rebuys: parseRebuys(p.rebuys),
       }));
 
       // Crear fecha combinando fecha y hora
@@ -396,28 +404,24 @@ export default function NuevaPartidaPage() {
                 <label className="block text-sm text-foreground-muted mb-2">
                   Fecha de la partida
                 </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={gameDate}
-                    onChange={(e) => setGameDate(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                  />
-                </div>
+                <input
+                  type="date"
+                  value={gameDate}
+                  onChange={(e) => setGameDate(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none appearance-none min-w-0 box-border"
+                />
               </div>
 
               <div>
                 <label className="block text-sm text-foreground-muted mb-2">
                   Hora de la partida
                 </label>
-                <div className="relative">
-                  <input
-                    type="time"
-                    value={gameTime}
-                    onChange={(e) => setGameTime(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                  />
-                </div>
+                <input
+                  type="time"
+                  value={gameTime}
+                  onChange={(e) => setGameTime(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none appearance-none min-w-0 box-border"
+                />
               </div>
             </div>
           </section>
@@ -467,7 +471,7 @@ export default function NuevaPartidaPage() {
                   <span className="text-xl font-bold text-accent">{totalPot.toFixed(2)}€</span>
                 </div>
                 <p className="text-xs text-foreground-muted mt-1">
-                  {expectedTotalChips} fichas en juego ({selectedPlayers.reduce((s, p) => s + p.rebuys, 0)} rebuys)
+                  {expectedTotalChips} fichas en juego ({selectedPlayers.reduce((s, p) => s + parseRebuys(p.rebuys), 0)} rebuys)
                 </p>
               </div>
             )}
@@ -612,7 +616,7 @@ export default function NuevaPartidaPage() {
                                 <button
                                   type="button"
                                   onClick={() => updateRebuys(gp.player_id, -1)}
-                                  disabled={gp.rebuys <= 0}
+                                  disabled={parseRebuys(gp.rebuys) <= 0}
                                   className="w-8 h-8 rounded-lg bg-background-secondary border border-border flex items-center justify-center text-foreground-muted hover:text-foreground disabled:opacity-30 transition-colors"
                                 >
                                   <Minus className="w-4 h-4" />
@@ -623,14 +627,15 @@ export default function NuevaPartidaPage() {
                                   value={gp.rebuys}
                                   onChange={(e) => {
                                     const val = e.target.value.replace(',', '.');
-                                    if (val === '' || val === '0') {
-                                      setRebuysDirectly(gp.player_id, 0);
-                                    } else {
-                                      const num = parseFloat(val);
-                                      if (!isNaN(num) && num >= 0) {
-                                        setRebuysDirectly(gp.player_id, num);
-                                      }
+                                    // Permitir string vacío, números, y números con punto decimal
+                                    if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                      setRebuysDirectly(gp.player_id, val === '' ? '0' : val);
                                     }
+                                  }}
+                                  onBlur={(e) => {
+                                    // Al perder el foco, limpiar el valor (quitar puntos finales, etc.)
+                                    const num = parseRebuys(e.target.value);
+                                    setRebuysDirectly(gp.player_id, Math.max(0, num).toString());
                                   }}
                                   className="w-12 h-8 text-center font-bold text-foreground bg-background border border-border rounded-lg focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none"
                                 />

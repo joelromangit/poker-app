@@ -61,7 +61,7 @@ export interface GameFormPlayer {
   player_id: string;
   player: Player;
   final_chips: string;
-  rebuys: number; // Número de rebuys (0 = solo buy-in inicial)
+  rebuys: string; // Número de rebuys como string para permitir decimales (0 = solo buy-in inicial)
 }
 
 // Para crear jugador

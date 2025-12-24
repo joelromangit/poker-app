@@ -708,16 +708,20 @@ export default function JugadoresPage() {
                     <img
                       src={gayPlayer.avatar_url}
                       alt={gayPlayer.name}
-                      className={`w-24 h-24 rounded-full object-cover mx-auto mb-4 ${
-                        isSpinning ? 'animate-pulse' : 'animate-bounce'
+                      className={`w-24 h-24 rounded-full object-cover mx-auto mb-4 transition-transform ${
+                        isSpinning ? 'animate-pulse' : 'animate-[wiggle_1s_ease-in-out_infinite]'
                       }`}
+                      style={!isSpinning ? { animation: 'wiggle 1s ease-in-out infinite' } : {}}
                     />
                   ) : (
                     <div
-                      className={`w-24 h-24 rounded-full flex items-center justify-center text-white font-bold text-4xl mx-auto mb-4 ${
-                        isSpinning ? 'animate-pulse' : 'animate-bounce'
+                      className={`w-24 h-24 rounded-full flex items-center justify-center text-white font-bold text-4xl mx-auto mb-4 transition-transform ${
+                        isSpinning ? 'animate-pulse' : ''
                       }`}
-                      style={{ backgroundColor: gayPlayer.avatar_color }}
+                      style={{ 
+                        backgroundColor: gayPlayer.avatar_color,
+                        ...(!isSpinning ? { animation: 'wiggle 1s ease-in-out infinite' } : {})
+                      }}
                     >
                       {gayPlayer.name.charAt(0).toUpperCase()}
                     </div>
@@ -739,7 +743,7 @@ export default function JugadoresPage() {
                       </p>
                       
                       {/* Confeti emoji */}
-                      <div className="text-4xl animate-bounce">
+                      <div className="text-4xl" style={{ animation: 'float 2s ease-in-out infinite' }}>
                         🏳️‍🌈✨🎊
                       </div>
                     </>
