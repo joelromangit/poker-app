@@ -19,6 +19,18 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "Poker Nights",
   },
+  openGraph: {
+    title: "Poker Nights",
+    description: "Lleva el registro de tus partidas de poker con amigos. Calcula ganancias y pérdidas fácilmente.",
+    siteName: "Poker Nights",
+    locale: "es_ES",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Poker Nights",
+    description: "Lleva el registro de tus partidas de poker con amigos.",
+  },
 };
 
 export const viewport: Viewport = {
