@@ -336,7 +336,7 @@ export default function PartidaPage() {
                             </>
                           )}
                         </button>
-                        {typeof navigator !== 'undefined' && navigator.share && (
+                        {typeof navigator !== 'undefined' && 'share' in navigator && (
                           <button
                             onClick={handleNativeShare}
                             className="w-full px-4 py-3 text-left hover:bg-background flex items-center gap-3 transition-colors text-foreground border-t border-border"
