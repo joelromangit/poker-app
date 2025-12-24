@@ -89,8 +89,8 @@ export default function NuevaPartidaPage() {
   const [loadingPlayers, setLoadingPlayers] = useState(true);
   const [draftLoaded, setDraftLoaded] = useState(false);
   
-  const [chipValue, setChipValue] = useState('0.05');
-  const [buyIn, setBuyIn] = useState('100');
+  const [chipValue, setChipValue] = useState('0.01');
+  const [buyIn, setBuyIn] = useState('1000');
   const [selectedPlayers, setSelectedPlayers] = useState<GameFormPlayer[]>([]);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -188,8 +188,8 @@ export default function NuevaPartidaPage() {
   // Descartar borrador
   const handleDiscardDraft = () => {
     clearDraft();
-    setChipValue('0.05');
-    setBuyIn('100');
+    setChipValue('0.01');
+    setBuyIn('1000');
     setSelectedPlayers([]);
     setNotes('');
     // Establecer fecha y hora actuales
@@ -204,15 +204,27 @@ export default function NuevaPartidaPage() {
     p => !selectedPlayers.some(sp => sp.player_id === p.id)
   );
 
-  // Añadir jugador a la partida
-  const addPlayerToGame = (player: Player) => {
+  // Añadir jugador a la partida (sin cerrar dropdown para multiselección)
+  const addPlayerToGame = (player: Player, closeDropdown: boolean = false) => {
     setSelectedPlayers([...selectedPlayers, {
       player_id: player.id,
       player: player,
       final_chips: '',
       rebuys: '0',
     }]);
-    setShowPlayerDropdown(false);
+    if (closeDropdown) {
+      setShowPlayerDropdown(false);
+    }
+  };
+
+  // Toggle jugador (añadir o quitar)
+  const togglePlayerInGame = (player: Player) => {
+    const isSelected = selectedPlayers.some(sp => sp.player_id === player.id);
+    if (isSelected) {
+      removePlayerFromGame(player.id);
+    } else {
+      addPlayerToGame(player, false);
+    }
   };
 
   // Eliminar jugador de la partida
@@ -438,28 +450,28 @@ export default function NuevaPartidaPage() {
                 <label className="block text-sm text-foreground-muted mb-2">
                   Valor de cada ficha (€)
                 </label>
-                <NumberInput
-                  value={chipValue}
-                  onChange={setChipValue}
-                  step={0.01}
-                  min={0.01}
-                  placeholder="0.05"
-                  icon={<Euro className="w-4 h-4" />}
-                />
+<NumberInput
+                                  value={chipValue}
+                                  onChange={setChipValue}
+                                  step={0.01}
+                                  min={0.01}
+                                  placeholder="0.01"
+                                  icon={<Euro className="w-4 h-4" />}
+                                />
               </div>
 
               <div>
                 <label className="block text-sm text-foreground-muted mb-2">
                   Fichas por buy-in
                 </label>
-                <NumberInput
-                  value={buyIn}
-                  onChange={setBuyIn}
-                  step={10}
-                  min={1}
-                  placeholder="100"
-                  icon={<Calculator className="w-4 h-4" />}
-                />
+<NumberInput
+                                  value={buyIn}
+                                  onChange={setBuyIn}
+                                  step={100}
+                                  min={1}
+                                  placeholder="1000"
+                                  icon={<Calculator className="w-4 h-4" />}
+                                />
               </div>
             </div>
 
@@ -486,7 +498,7 @@ export default function NuevaPartidaPage() {
               </h2>
             </div>
 
-            {/* Selector de jugadores */}
+            {/* Selector de jugadores - Multiselección */}
             <div className="relative mb-4">
               <button
                 type="button"
@@ -496,59 +508,100 @@ export default function NuevaPartidaPage() {
               >
                 <span className="text-foreground-muted flex items-center gap-2">
                   <Plus className="w-4 h-4" />
-                  Añadir jugador...
+                  Seleccionar jugadores...
                 </span>
                 <ChevronDown className={`w-5 h-5 text-foreground-muted transition-transform ${showPlayerDropdown ? 'rotate-180' : ''}`} />
               </button>
 
               {showPlayerDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-background-card border border-border rounded-xl shadow-lg z-10 max-h-64 overflow-y-auto">
-                  {unselectedPlayers.length === 0 ? (
-                    <div className="p-4 text-center text-foreground-muted">
-                      No hay más jugadores disponibles
-                    </div>
-                  ) : (
-                    unselectedPlayers.map(player => (
-                      <button
-                        key={player.id}
-                        type="button"
-                        onClick={() => addPlayerToGame(player)}
-                        className="w-full px-4 py-3 text-left hover:bg-background flex items-center gap-3 transition-colors"
-                      >
-                        {player.avatar_url ? (
-                          <img
-                            src={player.avatar_url}
-                            alt={player.name}
-                            className="w-8 h-8 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                            style={{ backgroundColor: player.avatar_color }}
-                          >
-                            {player.name.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <span className="text-foreground">{player.name}</span>
-                      </button>
-                    ))
-                  )}
+                <>
+                  {/* Overlay para cerrar al hacer clic fuera */}
+                  <div 
+                    className="fixed inset-0 z-[5]" 
+                    onClick={() => setShowPlayerDropdown(false)}
+                  />
                   
-                  {/* Crear nuevo jugador */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowPlayerDropdown(false);
-                      setShowNewPlayerModal(true);
-                    }}
-                    className="w-full px-4 py-3 text-left hover:bg-background flex items-center gap-3 transition-colors border-t border-border text-primary"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                      <UserPlus className="w-4 h-4" />
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-background-card border border-border rounded-xl shadow-lg z-10 max-h-72 overflow-y-auto">
+                    {/* Header del dropdown */}
+                    <div className="sticky top-0 bg-background-card border-b border-border p-3 flex items-center justify-between">
+                      <span className="text-sm text-foreground-muted">
+                        {selectedPlayers.length} seleccionados
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowPlayerDropdown(false)}
+                        className="text-xs text-primary font-medium hover:underline"
+                      >
+                        Listo
+                      </button>
                     </div>
-                    <span className="font-medium">Crear nuevo jugador</span>
-                  </button>
-                </div>
+
+                    {availablePlayers.length === 0 ? (
+                      <div className="p-4 text-center text-foreground-muted">
+                        No hay jugadores registrados
+                      </div>
+                    ) : (
+                      availablePlayers.map(player => {
+                        const isSelected = selectedPlayers.some(sp => sp.player_id === player.id);
+                        return (
+                          <button
+                            key={player.id}
+                            type="button"
+                            onClick={() => togglePlayerInGame(player)}
+                            className={`w-full px-4 py-3 text-left flex items-center gap-3 transition-colors ${
+                              isSelected 
+                                ? 'bg-primary/10 hover:bg-primary/20' 
+                                : 'hover:bg-background'
+                            }`}
+                          >
+                            {/* Checkbox visual */}
+                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                              isSelected 
+                                ? 'bg-primary border-primary' 
+                                : 'border-border'
+                            }`}>
+                              {isSelected && <Check className="w-3 h-3 text-white" />}
+                            </div>
+
+                            {player.avatar_url ? (
+                              <img
+                                src={player.avatar_url}
+                                alt={player.name}
+                                className="w-8 h-8 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div
+                                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                                style={{ backgroundColor: player.avatar_color }}
+                              >
+                                {player.name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <span className={`flex-1 ${isSelected ? 'text-foreground font-medium' : 'text-foreground'}`}>
+                              {player.name}
+                            </span>
+                          </button>
+                        );
+                      })
+                    )}
+                    
+                    {/* Crear nuevo jugador */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPlayerDropdown(false);
+                        setShowNewPlayerModal(true);
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-background flex items-center gap-3 transition-colors border-t border-border text-primary"
+                    >
+                      <div className="w-5 h-5" /> {/* Spacer para alineación */}
+                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                        <UserPlus className="w-4 h-4" />
+                      </div>
+                      <span className="font-medium">Crear nuevo jugador</span>
+                    </button>
+                  </div>
+                </>
               )}
             </div>
 

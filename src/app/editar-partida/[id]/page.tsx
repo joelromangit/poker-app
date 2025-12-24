@@ -41,8 +41,8 @@ export default function EditarPartidaPage() {
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
   const [loadingPlayers, setLoadingPlayers] = useState(true);
   
-  const [chipValue, setChipValue] = useState('0.05');
-  const [buyIn, setBuyIn] = useState('100');
+  const [chipValue, setChipValue] = useState('0.01');
+  const [buyIn, setBuyIn] = useState('1000');
   const [selectedPlayers, setSelectedPlayers] = useState<GameFormPlayer[]>([]);
   const [notes, setNotes] = useState('');
   const [gameDate, setGameDate] = useState('');
