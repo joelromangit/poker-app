@@ -27,7 +27,8 @@ import {
   Loader2,
   UserPlus,
   RefreshCw,
-  ArrowLeft
+  ArrowLeft,
+  Calendar
 } from 'lucide-react';
 
 export default function EditarPartidaPage() {
@@ -44,6 +45,8 @@ export default function EditarPartidaPage() {
   const [buyIn, setBuyIn] = useState('100');
   const [selectedPlayers, setSelectedPlayers] = useState<GameFormPlayer[]>([]);
   const [notes, setNotes] = useState('');
+  const [gameDate, setGameDate] = useState('');
+  const [gameTime, setGameTime] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -76,6 +79,11 @@ export default function EditarPartidaPage() {
       setChipValue(gameData.chip_value.toString());
       setBuyIn(gameData.buy_in.toString());
       setNotes(gameData.notes || '');
+      
+      // Cargar fecha y hora de la partida
+      const existingDate = new Date(gameData.created_at);
+      setGameDate(existingDate.toISOString().split('T')[0]);
+      setGameTime(existingDate.toTimeString().slice(0, 5));
       
       // Mapear jugadores de la partida al formato del formulario
       const formPlayers: GameFormPlayer[] = gameData.players.map(gp => ({
@@ -206,12 +214,16 @@ export default function EditarPartidaPage() {
         rebuys: p.rebuys,
       }));
 
+      // Crear fecha combinando fecha y hora
+      const gameDatetime = new Date(`${gameDate}T${gameTime}:00`);
+
       const updatedGame = await updateGame(
         gameId,
         parseFloat(chipValue) || 0,
         parseFloat(buyIn) || 0,
         playersData,
-        notes.trim() || undefined
+        notes.trim() || undefined,
+        gameDatetime
       );
 
       if (updatedGame) {
@@ -276,6 +288,40 @@ export default function EditarPartidaPage() {
           <p className="text-foreground-muted mb-6">
             Modifica los valores de la partida
           </p>
+
+          {/* Fecha y hora de la partida */}
+          <section className="bg-background-card rounded-2xl p-5 sm:p-6 border border-border mb-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-primary" />
+              Fecha y Hora
+            </h2>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-foreground-muted mb-2">
+                  Fecha de la partida
+                </label>
+                <input
+                  type="date"
+                  value={gameDate}
+                  onChange={(e) => setGameDate(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-foreground-muted mb-2">
+                  Hora de la partida
+                </label>
+                <input
+                  type="time"
+                  value={gameTime}
+                  onChange={(e) => setGameTime(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                />
+              </div>
+            </div>
+          </section>
 
           {/* Configuración de fichas */}
           <section className="bg-background-card rounded-2xl p-5 sm:p-6 border border-border mb-6">

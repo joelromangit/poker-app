@@ -101,7 +101,8 @@ export async function createGame(
   chipValue: number,
   buyIn: number,
   players: { player_id: string; final_chips: number; rebuys: number }[],
-  notes?: string
+  notes?: string,
+  gameDate?: Date
 ): Promise<Game | null> {
   const db = checkSupabase();
 
@@ -121,6 +122,7 @@ export async function createGame(
       total_pot: totalPot,
       notes: notes || null,
       status: 'completed',
+      created_at: gameDate ? gameDate.toISOString() : new Date().toISOString(),
     })
     .select()
     .single();
@@ -168,7 +170,8 @@ export async function updateGame(
   chipValue: number,
   buyIn: number,
   players: { player_id: string; final_chips: number; rebuys: number }[],
-  notes?: string
+  notes?: string,
+  gameDate?: Date
 ): Promise<Game | null> {
   const db = checkSupabase();
 
@@ -179,14 +182,20 @@ export async function updateGame(
   }, 0);
 
   // 1. Actualizar la partida
+  const updateData: any = {
+    chip_value: chipValue,
+    buy_in: buyIn,
+    total_pot: totalPot,
+    notes: notes || null,
+  };
+  
+  if (gameDate) {
+    updateData.created_at = gameDate.toISOString();
+  }
+
   const { error: gameError } = await db
     .from('games')
-    .update({
-      chip_value: chipValue,
-      buy_in: buyIn,
-      total_pot: totalPot,
-      notes: notes || null,
-    })
+    .update(updateData)
     .eq('id', gameId);
 
   if (gameError) {

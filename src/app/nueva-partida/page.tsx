@@ -26,7 +26,9 @@ import {
   UserPlus,
   RefreshCw,
   Trash2,
-  FileWarning
+  FileWarning,
+  Calendar,
+  Clock
 } from 'lucide-react';
 
 // Clave para localStorage
@@ -42,6 +44,8 @@ interface GameDraft {
     rebuys: number;
   }>;
   notes: string;
+  gameDate: string;
+  gameTime: string;
   savedAt: string;
 }
 
@@ -92,6 +96,13 @@ export default function NuevaPartidaPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showDraftBanner, setShowDraftBanner] = useState(false);
+  
+  // Fecha y hora de la partida (por defecto: ahora)
+  const now = new Date();
+  const defaultDate = now.toISOString().split('T')[0];
+  const defaultTime = now.toTimeString().slice(0, 5);
+  const [gameDate, setGameDate] = useState(defaultDate);
+  const [gameTime, setGameTime] = useState(defaultTime);
 
   // Modal para nuevo jugador
   const [showNewPlayerModal, setShowNewPlayerModal] = useState(false);
@@ -120,6 +131,8 @@ export default function NuevaPartidaPage() {
       setChipValue(draft.chipValue);
       setBuyIn(draft.buyIn);
       setNotes(draft.notes);
+      if (draft.gameDate) setGameDate(draft.gameDate);
+      if (draft.gameTime) setGameTime(draft.gameTime);
       
       // Restaurar jugadores (solo los que existen)
       const restoredPlayers: GameFormPlayer[] = [];
@@ -156,12 +169,14 @@ export default function NuevaPartidaPage() {
           rebuys: p.rebuys,
         })),
         notes,
+        gameDate,
+        gameTime,
       });
     } else {
       // Si no hay datos, limpiar el borrador
       clearDraft();
     }
-  }, [chipValue, buyIn, selectedPlayers, notes, draftLoaded]);
+  }, [chipValue, buyIn, selectedPlayers, notes, gameDate, gameTime, draftLoaded]);
 
   // Descartar borrador
   const handleDiscardDraft = () => {
@@ -170,6 +185,9 @@ export default function NuevaPartidaPage() {
     setBuyIn('100');
     setSelectedPlayers([]);
     setNotes('');
+    const now = new Date();
+    setGameDate(now.toISOString().split('T')[0]);
+    setGameTime(now.toTimeString().slice(0, 5));
     setShowDraftBanner(false);
   };
 
@@ -290,11 +308,15 @@ export default function NuevaPartidaPage() {
         rebuys: p.rebuys,
       }));
 
+      // Crear fecha combinando fecha y hora
+      const gameDatetime = new Date(`${gameDate}T${gameTime}:00`);
+
       const game = await createGame(
         parseFloat(chipValue) || 0,
         parseFloat(buyIn) || 0,
         playersData,
-        notes.trim() || undefined
+        notes.trim() || undefined,
+        gameDatetime
       );
 
       if (game) {
@@ -344,6 +366,44 @@ export default function NuevaPartidaPage() {
               </button>
             </div>
           )}
+
+          {/* Fecha y hora de la partida */}
+          <section className="bg-background-card rounded-2xl p-5 sm:p-6 border border-border mb-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-primary" />
+              Fecha y Hora
+            </h2>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-foreground-muted mb-2">
+                  Fecha de la partida
+                </label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={gameDate}
+                    onChange={(e) => setGameDate(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-foreground-muted mb-2">
+                  Hora de la partida
+                </label>
+                <div className="relative">
+                  <input
+                    type="time"
+                    value={gameTime}
+                    onChange={(e) => setGameTime(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
 
           {/* Configuración de fichas */}
           <section className="bg-background-card rounded-2xl p-5 sm:p-6 border border-border mb-6">
