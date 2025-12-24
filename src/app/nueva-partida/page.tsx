@@ -97,12 +97,9 @@ export default function NuevaPartidaPage() {
   const [error, setError] = useState('');
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   
-  // Fecha y hora de la partida (por defecto: ahora)
-  const now = new Date();
-  const defaultDate = now.toISOString().split('T')[0];
-  const defaultTime = now.toTimeString().slice(0, 5);
-  const [gameDate, setGameDate] = useState(defaultDate);
-  const [gameTime, setGameTime] = useState(defaultTime);
+  // Fecha y hora de la partida (se inicializa en useEffect para evitar hydration mismatch)
+  const [gameDate, setGameDate] = useState('');
+  const [gameTime, setGameTime] = useState('');
 
   // Modal para nuevo jugador
   const [showNewPlayerModal, setShowNewPlayerModal] = useState(false);
@@ -123,6 +120,11 @@ export default function NuevaPartidaPage() {
     setAvailablePlayers(players);
     setLoadingPlayers(false);
 
+    // Establecer fecha y hora actual por defecto
+    const now = new Date();
+    const currentDate = now.toISOString().split('T')[0];
+    const currentTime = now.toTimeString().slice(0, 5);
+
     // Cargar borrador después de tener los jugadores
     const draft = getDraft();
     if (draft && draft.players.length > 0) {
@@ -131,8 +133,8 @@ export default function NuevaPartidaPage() {
       setChipValue(draft.chipValue);
       setBuyIn(draft.buyIn);
       setNotes(draft.notes);
-      if (draft.gameDate) setGameDate(draft.gameDate);
-      if (draft.gameTime) setGameTime(draft.gameTime);
+      setGameDate(draft.gameDate || currentDate);
+      setGameTime(draft.gameTime || currentTime);
       
       // Restaurar jugadores (solo los que existen)
       const restoredPlayers: GameFormPlayer[] = [];
@@ -148,6 +150,10 @@ export default function NuevaPartidaPage() {
         }
       }
       setSelectedPlayers(restoredPlayers);
+    } else {
+      // Si no hay borrador, usar fecha y hora actuales
+      setGameDate(currentDate);
+      setGameTime(currentTime);
     }
     setDraftLoaded(true);
   };
@@ -185,9 +191,10 @@ export default function NuevaPartidaPage() {
     setBuyIn('100');
     setSelectedPlayers([]);
     setNotes('');
-    const now = new Date();
-    setGameDate(now.toISOString().split('T')[0]);
-    setGameTime(now.toTimeString().slice(0, 5));
+    // Establecer fecha y hora actuales
+    const currentNow = new Date();
+    setGameDate(currentNow.toISOString().split('T')[0]);
+    setGameTime(currentNow.toTimeString().slice(0, 5));
     setShowDraftBanner(false);
   };
 
