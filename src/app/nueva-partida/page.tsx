@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import NumberInput from '@/components/NumberInput';
 import { createGame } from '@/lib/games';
+import { getPlayers, createPlayer } from '@/lib/players';
+import { Player, GameFormPlayer } from '@/types';
 import { 
   Plus, 
   Trash2, 
@@ -16,73 +18,118 @@ import {
   TrendingDown,
   AlertCircle,
   CheckCircle2,
-  Calculator
+  Calculator,
+  ChevronDown,
+  X,
+  Check,
+  Loader2,
+  UserPlus
 } from 'lucide-react';
-
-interface PlayerInput {
-  id: string;
-  name: string;
-  finalChips: string;
-}
-
-let playerIdCounter = 10;
 
 export default function NuevaPartidaPage() {
   const router = useRouter();
+  const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
+  const [loadingPlayers, setLoadingPlayers] = useState(true);
+  
   const [chipValue, setChipValue] = useState('0.05');
   const [buyIn, setBuyIn] = useState('100');
-  const [players, setPlayers] = useState<PlayerInput[]>([
-    { id: 'p1', name: '', finalChips: '' },
-    { id: 'p2', name: '', finalChips: '' },
-  ]);
+  const [selectedPlayers, setSelectedPlayers] = useState<GameFormPlayer[]>([]);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  // Añadir jugador
-  function addPlayer() {
-    playerIdCounter++;
-    setPlayers([...players, { id: `p${playerIdCounter}`, name: '', finalChips: '' }]);
-  }
+  // Modal para nuevo jugador
+  const [showNewPlayerModal, setShowNewPlayerModal] = useState(false);
+  const [newPlayerName, setNewPlayerName] = useState('');
+  const [creatingPlayer, setCreatingPlayer] = useState(false);
 
-  // Eliminar jugador
-  function removePlayer(id: string) {
-    setPlayers(players.filter(p => p.id !== id));
-  }
+  // Dropdown de selección
+  const [showPlayerDropdown, setShowPlayerDropdown] = useState(false);
 
-  // Actualizar nombre
-  function updateName(id: string, value: string) {
-    setPlayers(players.map(p => p.id === id ? { ...p, name: value } : p));
-  }
+  useEffect(() => {
+    loadPlayers();
+  }, []);
 
-  // Actualizar fichas
-  function updateChips(id: string, value: string) {
-    setPlayers(players.map(p => p.id === id ? { ...p, finalChips: value } : p));
-  }
+  const loadPlayers = async () => {
+    setLoadingPlayers(true);
+    const players = await getPlayers();
+    setAvailablePlayers(players);
+    setLoadingPlayers(false);
+  };
+
+  // Jugadores no seleccionados aún
+  const unselectedPlayers = availablePlayers.filter(
+    p => !selectedPlayers.some(sp => sp.player_id === p.id)
+  );
+
+  // Añadir jugador a la partida
+  const addPlayerToGame = (player: Player) => {
+    setSelectedPlayers([...selectedPlayers, {
+      player_id: player.id,
+      player: player,
+      final_chips: '',
+    }]);
+    setShowPlayerDropdown(false);
+  };
+
+  // Eliminar jugador de la partida
+  const removePlayerFromGame = (playerId: string) => {
+    setSelectedPlayers(selectedPlayers.filter(p => p.player_id !== playerId));
+  };
+
+  // Actualizar fichas finales
+  const updateFinalChips = (playerId: string, value: string) => {
+    setSelectedPlayers(selectedPlayers.map(p => 
+      p.player_id === playerId ? { ...p, final_chips: value } : p
+    ));
+  };
+
+  // Crear nuevo jugador
+  const handleCreatePlayer = async () => {
+    if (!newPlayerName.trim()) return;
+
+    setCreatingPlayer(true);
+    const player = await createPlayer({ name: newPlayerName.trim() });
+    
+    if (player) {
+      setAvailablePlayers(prev => [...prev, player].sort((a, b) => a.name.localeCompare(b.name)));
+      addPlayerToGame(player);
+      setNewPlayerName('');
+      setShowNewPlayerModal(false);
+    }
+    
+    setCreatingPlayer(false);
+  };
 
   // Calcular ganancias/pérdidas
-  function calculateProfit(finalChips: string): number {
+  const calculateProfit = (finalChips: string): number => {
     const chips = parseFloat(finalChips) || 0;
     const initial = parseFloat(buyIn) || 0;
     const value = parseFloat(chipValue) || 0;
     return (chips - initial) * value;
-  }
+  };
 
   // Calcular bote total
-  const totalPot = (parseFloat(buyIn) || 0) * (parseFloat(chipValue) || 0) * players.length;
+  const totalPot = (parseFloat(buyIn) || 0) * (parseFloat(chipValue) || 0) * selectedPlayers.length;
 
   // Verificar balance
-  const totalFinalChips = players.reduce((sum, p) => sum + (parseFloat(p.finalChips) || 0), 0);
-  const expectedTotalChips = (parseFloat(buyIn) || 0) * players.length;
+  const totalFinalChips = selectedPlayers.reduce((sum, p) => sum + (parseFloat(p.final_chips) || 0), 0);
+  const expectedTotalChips = (parseFloat(buyIn) || 0) * selectedPlayers.length;
   const isBalanced = Math.abs(totalFinalChips - expectedTotalChips) < 0.01;
-  const allPlayersHaveData = players.every(p => p.name.trim() !== '' && p.finalChips !== '');
+  const allPlayersHaveData = selectedPlayers.length >= 2 && 
+    selectedPlayers.every(p => p.final_chips !== '' && parseFloat(p.final_chips) >= 0);
 
   // Guardar partida
-  async function handleSubmit() {
+  const handleSubmit = async () => {
     setError('');
     
+    if (selectedPlayers.length < 2) {
+      setError('Necesitas al menos 2 jugadores');
+      return;
+    }
+
     if (!allPlayersHaveData) {
-      setError('Todos los jugadores deben tener nombre y fichas finales');
+      setError('Todos los jugadores deben tener fichas finales');
       return;
     }
 
@@ -94,9 +141,9 @@ export default function NuevaPartidaPage() {
     setSaving(true);
 
     try {
-      const playersData = players.map(p => ({
-        name: p.name.trim(),
-        finalChips: parseFloat(p.finalChips) || 0,
+      const playersData = selectedPlayers.map(p => ({
+        player_id: p.player_id,
+        final_chips: parseFloat(p.final_chips) || 0,
       }));
 
       const game = await createGame(
@@ -117,7 +164,7 @@ export default function NuevaPartidaPage() {
       setError('Error al guardar la partida.');
       setSaving(false);
     }
-  }
+  };
 
   return (
     <>
@@ -129,7 +176,7 @@ export default function NuevaPartidaPage() {
             Nueva Partida
           </h1>
           <p className="text-foreground-muted mb-8">
-            Configura los valores y añade a los jugadores
+            Configura los valores y selecciona a los jugadores
           </p>
 
           {/* Configuración de fichas */}
@@ -170,15 +217,17 @@ export default function NuevaPartidaPage() {
             </div>
 
             {/* Info del bote */}
-            <div className="mt-4 p-4 bg-background rounded-xl border border-border">
-              <div className="flex items-center justify-between">
-                <span className="text-foreground-muted">Bote total estimado:</span>
-                <span className="text-xl font-bold text-accent">{totalPot.toFixed(2)}€</span>
+            {selectedPlayers.length > 0 && (
+              <div className="mt-4 p-4 bg-background rounded-xl border border-border">
+                <div className="flex items-center justify-between">
+                  <span className="text-foreground-muted">Bote total estimado:</span>
+                  <span className="text-xl font-bold text-accent">{totalPot.toFixed(2)}€</span>
+                </div>
+                <p className="text-xs text-foreground-muted mt-1">
+                  {selectedPlayers.length} jugadores × {buyIn} fichas × {chipValue}€/ficha
+                </p>
               </div>
-              <p className="text-xs text-foreground-muted mt-1">
-                {players.length} jugadores × {buyIn} fichas × {chipValue}€/ficha
-              </p>
-            </div>
+            )}
           </section>
 
           {/* Jugadores */}
@@ -186,90 +235,141 @@ export default function NuevaPartidaPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <Users className="w-5 h-5 text-primary" />
-                Jugadores ({players.length})
+                Jugadores ({selectedPlayers.length})
               </h2>
+            </div>
+
+            {/* Selector de jugadores */}
+            <div className="relative mb-4">
               <button
                 type="button"
-                onClick={addPlayer}
-                className="btn-primary px-3 py-1.5 rounded-lg text-white text-sm flex items-center gap-1"
+                onClick={() => setShowPlayerDropdown(!showPlayerDropdown)}
+                disabled={loadingPlayers}
+                className="w-full px-4 py-3 rounded-xl bg-background border border-border text-left flex items-center justify-between hover:border-primary/50 transition-colors"
               >
-                <Plus className="w-4 h-4" />
-                Añadir
+                <span className="text-foreground-muted flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Añadir jugador...
+                </span>
+                <ChevronDown className={`w-5 h-5 text-foreground-muted transition-transform ${showPlayerDropdown ? 'rotate-180' : ''}`} />
               </button>
-            </div>
 
-            <div className="space-y-3">
-              {players.map((player, index) => {
-                const profit = calculateProfit(player.finalChips);
-                const hasProfit = profit > 0;
-                const hasLoss = profit < 0;
-
-                return (
-                  <div
-                    key={player.id}
-                    className="bg-background rounded-xl p-4 border border-border"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-1">
-                        <span className="text-sm font-bold text-primary">{index + 1}</span>
-                      </div>
-
-                      <div className="flex-1 grid sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs text-foreground-muted mb-1">
-                            Nombre
-                          </label>
-                          <input
-                            type="text"
-                            value={player.name}
-                            onChange={(e) => updateName(player.id, e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg text-foreground text-sm"
-                            placeholder="Nombre del jugador"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs text-foreground-muted mb-1">
-                            Fichas finales
-                          </label>
-                          <NumberInput
-                            value={player.finalChips}
-                            onChange={(val) => updateChips(player.id, val)}
-                            step={10}
-                            min={0}
-                            placeholder="Ej: 150"
-                            className="text-sm [&_input]:py-2"
-                          />
-                        </div>
-                      </div>
-
-                      {players.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => removePlayer(player.id)}
-                          className="p-2 text-foreground-muted hover:text-danger transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+              {showPlayerDropdown && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-background-card border border-border rounded-xl shadow-lg z-10 max-h-64 overflow-y-auto">
+                  {unselectedPlayers.length === 0 ? (
+                    <div className="p-4 text-center text-foreground-muted">
+                      No hay más jugadores disponibles
                     </div>
-
-                    {/* Resultado calculado */}
-                    {player.finalChips && (
-                      <div className={`mt-3 pt-3 border-t border-border flex items-center justify-end gap-2 ${
-                        hasProfit ? 'text-success' : hasLoss ? 'text-danger' : 'text-foreground-muted'
-                      }`}>
-                        {hasProfit && <TrendingUp className="w-4 h-4" />}
-                        {hasLoss && <TrendingDown className="w-4 h-4" />}
-                        <span className="font-bold">
-                          {hasProfit ? '+' : ''}{profit.toFixed(2)}€
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                  ) : (
+                    unselectedPlayers.map(player => (
+                      <button
+                        key={player.id}
+                        type="button"
+                        onClick={() => addPlayerToGame(player)}
+                        className="w-full px-4 py-3 text-left hover:bg-background flex items-center gap-3 transition-colors"
+                      >
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                          style={{ backgroundColor: player.avatar_color }}
+                        >
+                          {player.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="text-foreground">{player.name}</span>
+                      </button>
+                    ))
+                  )}
+                  
+                  {/* Crear nuevo jugador */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPlayerDropdown(false);
+                      setShowNewPlayerModal(true);
+                    }}
+                    className="w-full px-4 py-3 text-left hover:bg-background flex items-center gap-3 transition-colors border-t border-border text-primary"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                      <UserPlus className="w-4 h-4" />
+                    </div>
+                    <span className="font-medium">Crear nuevo jugador</span>
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/* Lista de jugadores seleccionados */}
+            {selectedPlayers.length === 0 ? (
+              <div className="text-center py-8 text-foreground-muted">
+                <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>Selecciona al menos 2 jugadores para empezar</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {selectedPlayers.map((gp, index) => {
+                  const profit = calculateProfit(gp.final_chips);
+                  const hasProfit = profit > 0;
+                  const hasLoss = profit < 0;
+
+                  return (
+                    <div
+                      key={gp.player_id}
+                      className="bg-background rounded-xl p-4 border border-border"
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* Avatar */}
+                        <div
+                          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
+                          style={{ backgroundColor: gp.player.avatar_color }}
+                        >
+                          {gp.player.name.charAt(0).toUpperCase()}
+                        </div>
+
+                        {/* Nombre y fichas */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-foreground truncate">
+                            {gp.player.name}
+                          </p>
+                          <div className="mt-2">
+                            <label className="block text-xs text-foreground-muted mb-1">
+                              Fichas finales
+                            </label>
+                            <NumberInput
+                              value={gp.final_chips}
+                              onChange={(val) => updateFinalChips(gp.player_id, val)}
+                              step={10}
+                              min={0}
+                              placeholder="Ej: 150"
+                              className="text-sm [&_input]:py-2"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Resultado y eliminar */}
+                        <div className="flex flex-col items-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => removePlayerFromGame(gp.player_id)}
+                            className="p-2 text-foreground-muted hover:text-danger transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                          
+                          {gp.final_chips && (
+                            <div className={`flex items-center gap-1 font-bold ${
+                              hasProfit ? 'text-success' : hasLoss ? 'text-danger' : 'text-foreground-muted'
+                            }`}>
+                              {hasProfit && <TrendingUp className="w-4 h-4" />}
+                              {hasLoss && <TrendingDown className="w-4 h-4" />}
+                              <span>{hasProfit ? '+' : ''}{profit.toFixed(2)}€</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Balance indicator */}
             {allPlayersHaveData && (
@@ -321,18 +421,16 @@ export default function NuevaPartidaPage() {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={saving}
+            disabled={saving || !allPlayersHaveData || !isBalanced}
             className={`w-full py-4 rounded-xl font-semibold text-lg flex items-center justify-center gap-2 transition-all ${
-              saving
+              saving || !allPlayersHaveData || !isBalanced
                 ? 'bg-border text-foreground-muted cursor-not-allowed'
-                : allPlayersHaveData && isBalanced
-                  ? 'btn-accent'
-                  : 'bg-border text-foreground-muted hover:bg-border-hover'
+                : 'btn-accent'
             }`}
           >
             {saving ? (
               <>
-                <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin" />
                 Guardando...
               </>
             ) : (
@@ -344,6 +442,67 @@ export default function NuevaPartidaPage() {
           </button>
         </div>
       </main>
+
+      {/* Modal crear nuevo jugador */}
+      {showNewPlayerModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-background-card rounded-2xl p-6 w-full max-w-md border border-border animate-slide-in">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-foreground">Nuevo Jugador</h2>
+              <button
+                onClick={() => {
+                  setShowNewPlayerModal(false);
+                  setNewPlayerName('');
+                }}
+                className="p-2 text-foreground-muted hover:text-foreground transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm text-foreground-muted mb-2">
+                Nombre del jugador
+              </label>
+              <input
+                type="text"
+                value={newPlayerName}
+                onChange={(e) => setNewPlayerName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreatePlayer()}
+                className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                placeholder="Ej: Carlos"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowNewPlayerModal(false);
+                  setNewPlayerName('');
+                }}
+                className="flex-1 px-4 py-3 rounded-xl border border-border text-foreground-muted hover:bg-background transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreatePlayer}
+                disabled={creatingPlayer || !newPlayerName.trim()}
+                className="flex-1 btn-primary px-4 py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {creatingPlayer ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <Check className="w-5 h-5" />
+                    Crear y añadir
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

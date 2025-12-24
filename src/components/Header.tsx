@@ -1,9 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { Spade } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Spade, Users, Plus } from 'lucide-react';
 
 export default function Header() {
+  const pathname = usePathname();
+
+  const navLinks = [
+    { href: '/jugadores', label: 'Jugadores', icon: Users },
+  ];
+
   return (
     <header className="sticky top-0 z-50 bg-background-secondary/80 backdrop-blur-lg border-b border-border">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
@@ -21,13 +28,31 @@ export default function Header() {
             </div>
           </Link>
           
-          <nav className="flex items-center gap-2">
+          <nav className="flex items-center gap-2 sm:gap-3">
+            {navLinks.map(({ href, label, icon: Icon }) => {
+              const isActive = pathname === href;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${
+                    isActive 
+                      ? 'bg-primary/10 text-primary' 
+                      : 'text-foreground-muted hover:text-foreground hover:bg-background'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="hidden sm:inline">{label}</span>
+                </Link>
+              );
+            })}
+            
             <Link
               href="/nueva-partida"
-              className="btn-primary px-4 py-2 rounded-lg text-white font-medium text-sm flex items-center gap-2"
+              className="btn-primary px-3 sm:px-4 py-2 rounded-lg text-white font-medium text-sm flex items-center gap-2"
             >
+              <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Nueva Partida</span>
-              <span className="sm:hidden">+ Nueva</span>
             </Link>
           </nav>
         </div>
@@ -35,4 +60,3 @@ export default function Header() {
     </header>
   );
 }
-

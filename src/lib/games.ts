@@ -1,37 +1,27 @@
-import { supabase, isSupabaseConfigured, DbGame } from './supabase';
-import { Game, Player, GameSummary } from '@/types';
+import { supabase, DbGame, DbGamePlayer } from './supabase';
+import { Game, GamePlayer, GameSummary } from '@/types';
 
-const LOCAL_STORAGE_KEY = 'poker_nights_games';
-
-// Helper para localStorage
-function getLocalGames(): Game[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
+// Verificar que Supabase está configurado
+function checkSupabase() {
+  if (!supabase) {
+    throw new Error('Supabase no está configurado. Añade las credenciales en .env.local');
   }
-}
-
-function setLocalGames(games: Game[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(games));
-  } catch (e) {
-    console.error('Error saving to localStorage:', e);
-  }
+  return supabase;
 }
 
 // Obtener todas las partidas
 export async function getGames(): Promise<Game[]> {
-  if (!isSupabaseConfigured || !supabase) {
-    return getLocalGames();
-  }
+  const db = checkSupabase();
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('games')
-    .select('*')
+    .select(`
+      *,
+      game_players (
+        *,
+        players (*)
+      )
+    `)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -39,61 +29,44 @@ export async function getGames(): Promise<Game[]> {
     return [];
   }
 
-  return (data as DbGame[]).map(mapDbGameToGame);
+  return (data || []).map(mapDbGameToGame);
 }
 
 // Obtener resumen de partidas para la lista
 export async function getGamesSummary(): Promise<GameSummary[]> {
-  if (!isSupabaseConfigured || !supabase) {
-    return getGamesSummaryFromLocal();
-  }
+  const db = checkSupabase();
 
-  const { data, error } = await supabase.rpc('get_games_summary');
+  // Obtener partidas con jugadores
+  const { data, error } = await db
+    .from('games')
+    .select(`
+      id,
+      created_at,
+      total_pot,
+      game_players (
+        profit,
+        players (name)
+      )
+    `)
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching games summary:', error);
-    // Fallback: obtener datos directamente
-    return getGamesSummaryFallback();
+    return [];
   }
 
-  return data || [];
-}
+  return (data || []).map(game => {
+    const gamePlayers = game.game_players || [];
+    const topWinner = gamePlayers.reduce((prev: any, curr: any) => 
+      (curr.profit > (prev?.profit || -Infinity)) ? curr : prev
+    , null);
 
-// Resumen desde localStorage
-function getGamesSummaryFromLocal(): GameSummary[] {
-  const games = getLocalGames();
-  
-  return games.map(game => {
-    const topWinner = game.players.reduce((prev, curr) => 
-      curr.profit > prev.profit ? curr : prev
-    , game.players[0] || { name: '-', profit: 0 });
-    
     return {
       id: game.id,
       created_at: game.created_at,
-      player_count: game.players.length,
+      player_count: gamePlayers.length,
       total_pot: game.total_pot,
-      top_winner: topWinner?.name || '-',
-      top_winner_profit: topWinner?.profit || 0,
-    };
-  });
-}
-
-// Fallback si la función RPC no existe
-async function getGamesSummaryFallback(): Promise<GameSummary[]> {
-  const games = await getGames();
-  
-  return games.map(game => {
-    const topWinner = game.players.reduce((prev, curr) => 
-      curr.profit > prev.profit ? curr : prev
-    , game.players[0] || { name: '-', profit: 0 });
-    
-    return {
-      id: game.id,
-      created_at: game.created_at,
-      player_count: game.players.length,
-      total_pot: game.total_pot,
-      top_winner: topWinner?.name || '-',
+      top_winner: topWinner?.players?.name || '-',
       top_winner_profit: topWinner?.profit || 0,
     };
   });
@@ -101,14 +74,17 @@ async function getGamesSummaryFallback(): Promise<GameSummary[]> {
 
 // Obtener una partida por ID
 export async function getGameById(id: string): Promise<Game | null> {
-  if (!isSupabaseConfigured || !supabase) {
-    const games = getLocalGames();
-    return games.find(g => g.id === id) || null;
-  }
+  const db = checkSupabase();
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('games')
-    .select('*')
+    .select(`
+      *,
+      game_players (
+        *,
+        players (*)
+      )
+    `)
     .eq('id', id)
     .single();
 
@@ -117,50 +93,26 @@ export async function getGameById(id: string): Promise<Game | null> {
     return null;
   }
 
-  return mapDbGameToGame(data as DbGame);
+  return mapDbGameToGame(data);
 }
 
 // Crear una nueva partida
 export async function createGame(
   chipValue: number,
   buyIn: number,
-  players: { name: string; finalChips: number }[],
+  players: { player_id: string; final_chips: number }[],
   notes?: string
 ): Promise<Game | null> {
-  const processedPlayers: Player[] = players.map((p, index) => ({
-    id: `player-${index}-${Date.now()}`,
-    name: p.name,
-    initialChips: buyIn,
-    finalChips: p.finalChips,
-    profit: (p.finalChips - buyIn) * chipValue,
-  }));
+  const db = checkSupabase();
 
   const totalPot = players.length * buyIn * chipValue;
 
-  const newGame: Game = {
-    id: `game-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    created_at: new Date().toISOString(),
-    chip_value: chipValue,
-    buy_in: buyIn,
-    players: processedPlayers,
-    total_pot: totalPot,
-    notes: notes || undefined,
-    status: 'completed',
-  };
-
-  if (!isSupabaseConfigured || !supabase) {
-    const games = getLocalGames();
-    games.unshift(newGame);
-    setLocalGames(games);
-    return newGame;
-  }
-
-  const { data, error } = await supabase
+  // 1. Crear la partida
+  const { data: gameData, error: gameError } = await db
     .from('games')
     .insert({
       chip_value: chipValue,
       buy_in: buyIn,
-      players: processedPlayers,
       total_pot: totalPot,
       notes: notes || null,
       status: 'completed',
@@ -168,24 +120,41 @@ export async function createGame(
     .select()
     .single();
 
-  if (error) {
-    console.error('Error creating game:', error);
+  if (gameError || !gameData) {
+    console.error('Error creating game:', gameError);
     return null;
   }
 
-  return mapDbGameToGame(data as DbGame);
+  // 2. Crear los game_players
+  const gamePlayers = players.map(p => ({
+    game_id: gameData.id,
+    player_id: p.player_id,
+    initial_chips: buyIn,
+    final_chips: p.final_chips,
+    profit: (p.final_chips - buyIn) * chipValue,
+  }));
+
+  const { error: playersError } = await db
+    .from('game_players')
+    .insert(gamePlayers);
+
+  if (playersError) {
+    console.error('Error creating game_players:', playersError);
+    // Rollback: eliminar la partida creada
+    await db.from('games').delete().eq('id', gameData.id);
+    return null;
+  }
+
+  // 3. Obtener la partida completa con jugadores
+  return getGameById(gameData.id);
 }
 
 // Eliminar una partida
 export async function deleteGame(id: string): Promise<boolean> {
-  if (!isSupabaseConfigured || !supabase) {
-    const games = getLocalGames();
-    const filtered = games.filter(g => g.id !== id);
-    setLocalGames(filtered);
-    return true;
-  }
+  const db = checkSupabase();
 
-  const { error } = await supabase
+  // game_players se elimina automáticamente por ON DELETE CASCADE
+  const { error } = await db
     .from('games')
     .delete()
     .eq('id', id);
@@ -199,13 +168,29 @@ export async function deleteGame(id: string): Promise<boolean> {
 }
 
 // Mapear datos de DB a tipo Game
-function mapDbGameToGame(dbGame: DbGame): Game {
+function mapDbGameToGame(dbGame: any): Game {
+  const gamePlayers: GamePlayer[] = (dbGame.game_players || []).map((gp: any) => ({
+    id: gp.id,
+    game_id: gp.game_id,
+    player_id: gp.player_id,
+    player: gp.players ? {
+      id: gp.players.id,
+      created_at: gp.players.created_at,
+      name: gp.players.name,
+      avatar_color: gp.players.avatar_color,
+      is_active: gp.players.is_active,
+    } : null,
+    initial_chips: gp.initial_chips,
+    final_chips: gp.final_chips,
+    profit: gp.profit,
+  }));
+
   return {
     id: dbGame.id,
     created_at: dbGame.created_at,
     chip_value: dbGame.chip_value,
     buy_in: dbGame.buy_in,
-    players: dbGame.players,
+    players: gamePlayers,
     total_pot: dbGame.total_pot,
     notes: dbGame.notes || undefined,
     status: dbGame.status,

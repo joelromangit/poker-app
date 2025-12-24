@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { getGameById, deleteGame } from '@/lib/games';
-import { Game } from '@/types';
+import { Game, GamePlayer } from '@/types';
 import {
   ArrowLeft,
   Calendar,
@@ -86,10 +86,10 @@ export default function PartidaPage() {
     text += `💰 Bote: ${game.total_pot.toFixed(2)}€\n\n`;
     text += `Resultados:\n`;
     
-    sortedPlayers.forEach((p, i) => {
+    sortedPlayers.forEach((gp, i) => {
       const emoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '•';
-      const sign = p.profit > 0 ? '+' : '';
-      text += `${emoji} ${p.name}: ${sign}${p.profit.toFixed(2)}€\n`;
+      const sign = gp.profit > 0 ? '+' : '';
+      text += `${emoji} ${gp.player.name}: ${sign}${gp.profit.toFixed(2)}€\n`;
     });
     
     return text;
@@ -212,18 +212,21 @@ export default function PartidaPage() {
           {winner && winner.profit > 0 && (
             <div className="bg-gradient-to-r from-accent/20 to-warning/10 rounded-2xl p-6 border border-accent/30 mb-6 animate-fade-in" style={{ animationDelay: '0.1s' }}>
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-accent/30 flex items-center justify-center">
-                  <Trophy className="w-7 h-7 text-accent" />
+                <div
+                  className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold"
+                  style={{ backgroundColor: winner.player.avatar_color }}
+                >
+                  {winner.player.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1">
                   <p className="text-sm text-accent font-medium">🎉 ¡Ganador de la noche!</p>
-                  <p className="text-2xl font-bold text-foreground">{winner.name}</p>
+                  <p className="text-2xl font-bold text-foreground">{winner.player.name}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-success">+{winner.profit.toFixed(2)}€</p>
                   <p className="text-sm text-foreground-muted">
-                    {winner.finalChips - winner.initialChips > 0 ? '+' : ''}
-                    {winner.finalChips - winner.initialChips} fichas
+                    {winner.final_chips - winner.initial_chips > 0 ? '+' : ''}
+                    {winner.final_chips - winner.initial_chips} fichas
                   </p>
                 </div>
               </div>
@@ -240,14 +243,14 @@ export default function PartidaPage() {
             </div>
 
             <div className="divide-y divide-border">
-              {sortedPlayers.map((player, index) => {
-                const isWinner = player.profit > 0;
-                const isLoser = player.profit < 0;
-                const chipDiff = player.finalChips - player.initialChips;
+              {sortedPlayers.map((gp, index) => {
+                const isWinner = gp.profit > 0;
+                const isLoser = gp.profit < 0;
+                const chipDiff = gp.final_chips - gp.initial_chips;
 
                 return (
                   <div
-                    key={player.id}
+                    key={gp.id}
                     className="p-4 flex items-center gap-4 animate-slide-in"
                     style={{ animationDelay: `${(index + 1) * 0.05}s` }}
                   >
@@ -261,11 +264,19 @@ export default function PartidaPage() {
                       {index + 1}
                     </div>
 
+                    {/* Avatar */}
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
+                      style={{ backgroundColor: gp.player.avatar_color }}
+                    >
+                      {gp.player.name.charAt(0).toUpperCase()}
+                    </div>
+
                     {/* Nombre y fichas */}
                     <div className="flex-1">
-                      <p className="font-medium text-foreground">{player.name}</p>
+                      <p className="font-medium text-foreground">{gp.player.name}</p>
                       <p className="text-sm text-foreground-muted">
-                        {player.initialChips} → {player.finalChips} fichas
+                        {gp.initial_chips} → {gp.final_chips} fichas
                         <span className={`ml-2 ${chipDiff > 0 ? 'text-success' : chipDiff < 0 ? 'text-danger' : ''}`}>
                           ({chipDiff > 0 ? '+' : ''}{chipDiff})
                         </span>
@@ -282,7 +293,7 @@ export default function PartidaPage() {
                       {isLoser && <TrendingDown className="w-4 h-4" />}
                       {!isWinner && !isLoser && <Minus className="w-4 h-4" />}
                       <span>
-                        {isWinner ? '+' : ''}{player.profit.toFixed(2)}€
+                        {isWinner ? '+' : ''}{gp.profit.toFixed(2)}€
                       </span>
                     </div>
                   </div>
@@ -348,4 +359,3 @@ export default function PartidaPage() {
     </>
   );
 }
-

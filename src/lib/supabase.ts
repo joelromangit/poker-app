@@ -9,24 +9,32 @@ export const supabase: SupabaseClient | null =
     ? createClient(supabaseUrl, supabaseAnonKey)
     : null;
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
-
 // Database types
+export interface DbPlayer {
+  id: string;
+  created_at: string;
+  name: string;
+  avatar_color: string;
+  is_active: boolean;
+}
+
+export interface DbGamePlayer {
+  id: string;
+  game_id: string;
+  player_id: string;
+  initial_chips: number;
+  final_chips: number;
+  profit: number;
+  players?: DbPlayer; // Join con players
+}
+
 export interface DbGame {
   id: string;
   created_at: string;
   chip_value: number;
   buy_in: number;
-  players: DbPlayer[];
   total_pot: number;
   notes: string | null;
   status: 'active' | 'completed';
-}
-
-export interface DbPlayer {
-  id: string;
-  name: string;
-  initialChips: number;
-  finalChips: number;
-  profit: number;
+  game_players?: DbGamePlayer[]; // Join con game_players
 }
