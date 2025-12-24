@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS game_players (
   player_id UUID NOT NULL REFERENCES players(id) ON DELETE RESTRICT,
   initial_chips INTEGER NOT NULL,
   final_chips INTEGER NOT NULL,
-  rebuys INTEGER NOT NULL DEFAULT 0,  -- Número de rebuys (compras adicionales)
+  rebuys DECIMAL(10,2) NOT NULL DEFAULT 0,  -- Número de rebuys (permite decimales como 0.5)
   profit DECIMAL(10,2) NOT NULL,
   UNIQUE(game_id, player_id)
 );
@@ -118,9 +118,17 @@ BEGIN
     SELECT 1 FROM information_schema.columns 
     WHERE table_name = 'game_players' AND column_name = 'rebuys'
   ) THEN
-    ALTER TABLE game_players ADD COLUMN rebuys INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE game_players ADD COLUMN rebuys DECIMAL(10,2) NOT NULL DEFAULT 0;
   END IF;
 END $$;
+
+-- =============================================
+-- MIGRACIÓN: Cambiar rebuys de INTEGER a DECIMAL
+-- =============================================
+-- Ejecuta esto si ya tienes rebuys como INTEGER y quieres permitir decimales
+
+ALTER TABLE game_players 
+ALTER COLUMN rebuys TYPE DECIMAL(10,2) USING rebuys::DECIMAL(10,2);
 
 -- =============================================
 -- NOTAS SOBRE REBUYS
