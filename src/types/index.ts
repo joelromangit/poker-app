@@ -4,6 +4,7 @@ export interface Player {
   created_at: string;
   name: string;
   avatar_color: string;
+  avatar_url?: string; // URL de la foto de perfil
   is_active: boolean;
 }
 
@@ -28,6 +29,7 @@ export interface Game {
   players: GamePlayer[];
   total_pot: number;
   notes?: string;
+  loser_photo_url?: string; // URL de la foto del perdedor
   status: 'active' | 'completed';
 }
 

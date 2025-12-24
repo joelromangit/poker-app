@@ -141,3 +141,66 @@ END $$;
 --
 -- El bote total se calcula sumando todas las inversiones:
 --   total_pot = Σ (buy_in × (1 + rebuys_jugador) × chip_value)
+
+-- =============================================
+-- MIGRACIÓN: Fotos de perfil y del perdedor
+-- =============================================
+-- Ejecuta esto para añadir soporte de fotos
+
+-- Añadir avatar_url a players
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'players' AND column_name = 'avatar_url'
+  ) THEN
+    ALTER TABLE players ADD COLUMN avatar_url TEXT;
+  END IF;
+END $$;
+
+-- Añadir loser_photo_url a games (foto del perdedor)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'games' AND column_name = 'loser_photo_url'
+  ) THEN
+    ALTER TABLE games ADD COLUMN loser_photo_url TEXT;
+  END IF;
+END $$;
+
+-- =============================================
+-- CONFIGURACIÓN DE SUPABASE STORAGE
+-- =============================================
+-- 
+-- 1. Ve a Storage en el panel de Supabase
+-- 2. Crea un bucket llamado "avatars" (público)
+-- 3. Crea un bucket llamado "loser-photos" (público)
+-- 4. Configura las políticas de acceso:
+
+-- Política para bucket 'avatars' (ir a Storage > Policies):
+-- Permite lectura pública y escritura pública
+-- 
+-- INSERT Policy:
+--   Nombre: Allow public uploads
+--   Target roles: anon, authenticated
+--   USING expression: true
+--   WITH CHECK expression: true
+--
+-- SELECT Policy:
+--   Nombre: Allow public read
+--   Target roles: anon, authenticated  
+--   USING expression: true
+--
+-- UPDATE Policy:
+--   Nombre: Allow public update
+--   Target roles: anon, authenticated
+--   USING expression: true
+--   WITH CHECK expression: true
+--
+-- DELETE Policy:
+--   Nombre: Allow public delete
+--   Target roles: anon, authenticated
+--   USING expression: true
+
+-- Repetir las mismas políticas para 'loser-photos'

@@ -271,6 +271,7 @@ function mapDbGameToGame(dbGame: any): Game {
       created_at: gp.players.created_at,
       name: gp.players.name,
       avatar_color: gp.players.avatar_color,
+      avatar_url: gp.players.avatar_url || undefined,
       is_active: gp.players.is_active,
     } : null,
     initial_chips: gp.initial_chips,
@@ -287,6 +288,24 @@ function mapDbGameToGame(dbGame: any): Game {
     players: gamePlayers,
     total_pot: dbGame.total_pot,
     notes: dbGame.notes || undefined,
+    loser_photo_url: dbGame.loser_photo_url || undefined,
     status: dbGame.status,
   };
+}
+
+// Actualizar foto del perdedor
+export async function updateGameLoserPhoto(gameId: string, loserPhotoUrl: string | null): Promise<boolean> {
+  const db = checkSupabase();
+
+  const { error } = await db
+    .from('games')
+    .update({ loser_photo_url: loserPhotoUrl })
+    .eq('id', gameId);
+
+  if (error) {
+    console.error('Error updating loser photo:', error);
+    return false;
+  }
+
+  return true;
 }

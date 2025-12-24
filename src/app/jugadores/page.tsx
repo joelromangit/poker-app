@@ -15,8 +15,13 @@ import {
   Loader2,
   Pencil,
   Sparkles,
-  Rainbow
+  Rainbow,
+  ArrowUpDown,
+  Medal,
+  Camera,
+  Trash2
 } from 'lucide-react';
+import { uploadPlayerAvatar, compressImage, deletePlayerAvatar } from '@/lib/storage';
 
 const AVATAR_COLORS = [
   '#10B981', // Verde esmeralda
@@ -44,9 +49,15 @@ export default function JugadoresPage() {
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('');
+  const [editAvatarUrl, setEditAvatarUrl] = useState<string | undefined>(undefined);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
   
   const [error, setError] = useState('');
+  
+  // Orden del ranking
+  type SortBy = 'balance' | 'winrate';
+  const [sortBy, setSortBy] = useState<SortBy>('balance');
   
   // Who's Gay modal
   const [showGayModal, setShowGayModal] = useState(false);
@@ -106,7 +117,40 @@ export default function JugadoresPage() {
     setEditingPlayer(player);
     setEditName(player.name);
     setEditColor(player.avatar_color);
+    setEditAvatarUrl(player.avatar_url);
     setError('');
+  };
+
+  // Manejar subida de avatar
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingPlayer) return;
+
+    setUploadingAvatar(true);
+    try {
+      // Comprimir imagen
+      const compressedFile = await compressImage(file, 300);
+      
+      // Subir a Supabase Storage
+      const url = await uploadPlayerAvatar(editingPlayer.id, compressedFile);
+      if (url) {
+        setEditAvatarUrl(url);
+      } else {
+        setError('Error al subir la imagen. Verifica que el bucket "avatars" esté configurado en Supabase.');
+      }
+    } catch (err) {
+      console.error('Error uploading avatar:', err);
+      setError('Error al subir la imagen');
+    }
+    setUploadingAvatar(false);
+  };
+
+  // Eliminar avatar
+  const handleRemoveAvatar = async () => {
+    if (editAvatarUrl) {
+      await deletePlayerAvatar(editAvatarUrl);
+    }
+    setEditAvatarUrl(undefined);
   };
 
   const handleUpdatePlayer = async () => {
@@ -122,7 +166,8 @@ export default function JugadoresPage() {
 
     const updated = await updatePlayer(editingPlayer.id, {
       name: editName.trim(),
-      avatar_color: editColor
+      avatar_color: editColor,
+      avatar_url: editAvatarUrl || null,
     });
 
     if (updated) {
@@ -130,6 +175,7 @@ export default function JugadoresPage() {
         p.id === updated.id ? updated : p
       ).sort((a, b) => a.name.localeCompare(b.name)));
       setEditingPlayer(null);
+      loadData(); // Recargar para obtener los datos actualizados
     } else {
       setError('Error al actualizar. ¿Ya existe ese nombre?');
     }
@@ -138,6 +184,22 @@ export default function JugadoresPage() {
   };
 
   const getPlayerStats = (playerId: string) => stats.get(playerId);
+
+  // Ordenar jugadores según el criterio seleccionado
+  const sortedPlayers = [...players].sort((a, b) => {
+    const statsA = stats.get(a.id);
+    const statsB = stats.get(b.id);
+    
+    if (sortBy === 'balance') {
+      const balanceA = statsA?.total_balance || 0;
+      const balanceB = statsB?.total_balance || 0;
+      return balanceB - balanceA; // Mayor balance primero
+    } else {
+      const winrateA = statsA?.win_rate || 0;
+      const winrateB = statsB?.win_rate || 0;
+      return winrateB - winrateA; // Mayor winrate primero
+    }
+  });
 
   // Who's Gay? - Seleccionar jugador aleatorio con animación
   const handleWhosGay = () => {
@@ -191,10 +253,11 @@ export default function JugadoresPage() {
       <main className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         <div className="animate-fade-in">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
-                Jugadores
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 flex items-center gap-2">
+                <Medal className="w-8 h-8 text-accent" />
+                Ranking de Jugadores
               </h1>
               <p className="text-foreground-muted">
                 {players.length} jugadores registrados
@@ -221,6 +284,36 @@ export default function JugadoresPage() {
               </button>
             </div>
           </div>
+
+          {/* Botones de ordenación */}
+          {players.length > 0 && (
+            <div className="flex items-center gap-2 mb-6">
+              <span className="text-sm text-foreground-muted flex items-center gap-1">
+                <ArrowUpDown className="w-4 h-4" />
+                Ordenar por:
+              </span>
+              <button
+                onClick={() => setSortBy('balance')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  sortBy === 'balance'
+                    ? 'bg-primary text-white'
+                    : 'bg-background border border-border text-foreground-muted hover:text-foreground'
+                }`}
+              >
+                💰 Balance
+              </button>
+              <button
+                onClick={() => setSortBy('winrate')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  sortBy === 'winrate'
+                    ? 'bg-primary text-white'
+                    : 'bg-background border border-border text-foreground-muted hover:text-foreground'
+                }`}
+              >
+                🏆 % Victorias
+              </button>
+            </div>
+          )}
 
           {/* Modal crear jugador */}
           {showNewPlayer && (
@@ -313,15 +406,56 @@ export default function JugadoresPage() {
                   </button>
                 </div>
 
-                {/* Preview del avatar */}
+                {/* Preview del avatar con opción de foto */}
                 <div className="flex justify-center mb-6">
-                  <div
-                    className="w-20 h-20 rounded-full flex items-center justify-center text-white font-bold text-3xl transition-colors"
-                    style={{ backgroundColor: editColor }}
-                  >
-                    {editName.charAt(0).toUpperCase() || '?'}
+                  <div className="relative group">
+                    {editAvatarUrl ? (
+                      <img
+                        src={editAvatarUrl}
+                        alt={editName}
+                        className="w-24 h-24 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="w-24 h-24 rounded-full flex items-center justify-center text-white font-bold text-4xl transition-colors"
+                        style={{ backgroundColor: editColor }}
+                      >
+                        {editName.charAt(0).toUpperCase() || '?'}
+                      </div>
+                    )}
+                    
+                    {/* Overlay para subir foto */}
+                    <label className="absolute inset-0 rounded-full flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                      {uploadingAvatar ? (
+                        <Loader2 className="w-6 h-6 text-white animate-spin" />
+                      ) : (
+                        <Camera className="w-6 h-6 text-white" />
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                        disabled={uploadingAvatar}
+                      />
+                    </label>
+
+                    {/* Botón eliminar foto */}
+                    {editAvatarUrl && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveAvatar}
+                        className="absolute -top-1 -right-1 w-6 h-6 bg-danger rounded-full flex items-center justify-center text-white hover:bg-danger/80 transition-colors"
+                        title="Eliminar foto"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
+                <p className="text-xs text-foreground-muted text-center mb-4">
+                  Haz clic en el avatar para subir una foto
+                </p>
 
                 <div className="mb-4">
                   <label className="block text-sm text-foreground-muted mb-2">
@@ -401,32 +535,56 @@ export default function JugadoresPage() {
               </button>
             </div>
           ) : (
-            <div className="grid gap-4">
-              {players.map((player, index) => {
+            <div className="grid gap-3">
+              {sortedPlayers.map((player, index) => {
                 const playerStats = getPlayerStats(player.id);
                 const balance = playerStats?.total_balance || 0;
                 const isPositive = balance > 0;
                 const isNegative = balance < 0;
+                const position = index + 1;
 
                 return (
                   <div
                     key={player.id}
-                    className="bg-background-card rounded-2xl p-5 border border-border hover:border-primary/30 transition-all animate-slide-in"
+                    className={`bg-background-card rounded-2xl p-4 sm:p-5 border transition-all animate-slide-in ${
+                      position === 1 ? 'border-accent/50 bg-gradient-to-r from-accent/10 to-transparent' :
+                      position === 2 ? 'border-foreground-muted/30' :
+                      position === 3 ? 'border-warning/30' :
+                      'border-border hover:border-primary/30'
+                    }`}
                     style={{ animationDelay: `${index * 0.05}s` }}
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      {/* Posición del ranking */}
+                      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-sm sm:text-lg flex-shrink-0 ${
+                        position === 1 ? 'bg-accent/20 text-accent' :
+                        position === 2 ? 'bg-foreground-muted/20 text-foreground-muted' :
+                        position === 3 ? 'bg-warning/20 text-warning' :
+                        'bg-background text-foreground-muted'
+                      }`}>
+                        {position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : position}
+                      </div>
+
                       {/* Avatar con botón de editar */}
                       <button
                         onClick={() => openEditModal(player)}
                         className="relative group"
                         title="Editar jugador"
                       >
-                        <div
-                          className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0 transition-opacity group-hover:opacity-70"
-                          style={{ backgroundColor: player.avatar_color }}
-                        >
-                          {player.name.charAt(0).toUpperCase()}
-                        </div>
+                        {player.avatar_url ? (
+                          <img
+                            src={player.avatar_url}
+                            alt={player.name}
+                            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover flex-shrink-0 transition-opacity group-hover:opacity-70"
+                          />
+                        ) : (
+                          <div
+                            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-white font-bold text-base sm:text-lg flex-shrink-0 transition-opacity group-hover:opacity-70"
+                            style={{ backgroundColor: player.avatar_color }}
+                          >
+                            {player.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
                         <div className="absolute inset-0 rounded-full flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Pencil className="w-4 h-4 text-white" />
                         </div>
@@ -434,24 +592,24 @@ export default function JugadoresPage() {
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-semibold text-foreground truncate">
+                        <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
                           {player.name}
                         </h3>
-                        <p className="text-sm text-foreground-muted">
-                          {playerStats?.total_games || 0} partidas jugadas
+                        <p className="text-xs sm:text-sm text-foreground-muted">
+                          {playerStats?.total_games || 0} partidas
                         </p>
                       </div>
 
                       {/* Stats */}
-                      <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-3 sm:gap-6">
                         {/* Balance */}
                         <div className="text-right">
-                          <p className="text-xs text-foreground-muted mb-1">Balance</p>
-                          <p className={`text-lg font-bold flex items-center gap-1 ${
+                          <p className="text-xs text-foreground-muted mb-0.5 hidden sm:block">Balance</p>
+                          <p className={`text-base sm:text-lg font-bold flex items-center justify-end gap-1 ${
                             isPositive ? 'text-success' : isNegative ? 'text-danger' : 'text-foreground-muted'
                           }`}>
-                            {isPositive && <TrendingUp className="w-4 h-4" />}
-                            {isNegative && <TrendingDown className="w-4 h-4" />}
+                            {isPositive && <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />}
+                            {isNegative && <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4" />}
                             {isPositive ? '+' : ''}{balance.toFixed(2)}€
                           </p>
                         </div>
@@ -459,17 +617,17 @@ export default function JugadoresPage() {
                         {/* Win rate */}
                         {playerStats && playerStats.total_games > 0 && (
                           <div className="text-right hidden sm:block">
-                            <p className="text-xs text-foreground-muted mb-1">Victorias</p>
-                            <p className="text-lg font-bold text-foreground flex items-center gap-1">
+                            <p className="text-xs text-foreground-muted mb-0.5">Victorias</p>
+                            <p className="text-lg font-bold text-foreground flex items-center justify-end gap-1">
                               <Trophy className="w-4 h-4 text-accent" />
                               {playerStats.win_rate.toFixed(0)}%
                             </p>
                           </div>
                         )}
 
-                        {/* Partidas */}
+                        {/* Media */}
                         <div className="text-right hidden sm:block">
-                          <p className="text-xs text-foreground-muted mb-1">Media</p>
+                          <p className="text-xs text-foreground-muted mb-0.5">Media</p>
                           <p className={`text-lg font-bold ${
                             (playerStats?.average_per_game || 0) >= 0 ? 'text-success' : 'text-danger'
                           }`}>
@@ -482,18 +640,18 @@ export default function JugadoresPage() {
 
                     {/* Stats expandidas en móvil */}
                     {playerStats && playerStats.total_games > 0 && (
-                      <div className="mt-4 pt-4 border-t border-border grid grid-cols-3 gap-4 sm:hidden">
+                      <div className="mt-3 pt-3 border-t border-border grid grid-cols-3 gap-3 sm:hidden">
                         <div className="text-center">
                           <p className="text-xs text-foreground-muted">Victorias</p>
-                          <p className="font-bold text-foreground">{playerStats.win_rate.toFixed(0)}%</p>
+                          <p className="font-bold text-foreground text-sm">{playerStats.win_rate.toFixed(0)}%</p>
                         </div>
                         <div className="text-center">
                           <p className="text-xs text-foreground-muted">Mejor</p>
-                          <p className="font-bold text-success">+{playerStats.best_game.toFixed(2)}€</p>
+                          <p className="font-bold text-success text-sm">+{playerStats.best_game.toFixed(2)}€</p>
                         </div>
                         <div className="text-center">
                           <p className="text-xs text-foreground-muted">Peor</p>
-                          <p className="font-bold text-danger">{playerStats.worst_game.toFixed(2)}€</p>
+                          <p className="font-bold text-danger text-sm">{playerStats.worst_game.toFixed(2)}€</p>
                         </div>
                       </div>
                     )}
@@ -531,14 +689,24 @@ export default function JugadoresPage() {
               {gayPlayer && (
                 <div className={`transition-all duration-200 ${isSpinning ? 'scale-95 opacity-70' : 'scale-100 opacity-100'}`}>
                   {/* Avatar grande */}
-                  <div
-                    className={`w-24 h-24 rounded-full flex items-center justify-center text-white font-bold text-4xl mx-auto mb-4 ${
-                      isSpinning ? 'animate-pulse' : 'animate-bounce'
-                    }`}
-                    style={{ backgroundColor: gayPlayer.avatar_color }}
-                  >
-                    {gayPlayer.name.charAt(0).toUpperCase()}
-                  </div>
+                  {gayPlayer.avatar_url ? (
+                    <img
+                      src={gayPlayer.avatar_url}
+                      alt={gayPlayer.name}
+                      className={`w-24 h-24 rounded-full object-cover mx-auto mb-4 ${
+                        isSpinning ? 'animate-pulse' : 'animate-bounce'
+                      }`}
+                    />
+                  ) : (
+                    <div
+                      className={`w-24 h-24 rounded-full flex items-center justify-center text-white font-bold text-4xl mx-auto mb-4 ${
+                        isSpinning ? 'animate-pulse' : 'animate-bounce'
+                      }`}
+                      style={{ backgroundColor: gayPlayer.avatar_color }}
+                    >
+                      {gayPlayer.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
 
                   {/* Nombre */}
                   <p className={`text-3xl font-bold mb-2 ${

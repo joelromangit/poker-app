@@ -25,7 +25,15 @@ import {
   MessageCircle,
   Copy,
   Check,
+  ArrowRight,
+  Wallet,
+  Camera,
+  Frown,
+  Loader2,
+  X,
 } from 'lucide-react';
+import { uploadLoserPhoto, compressImage, deleteLoserPhoto } from '@/lib/storage';
+import { updateGameLoserPhoto } from '@/lib/games';
 
 export default function PartidaPage() {
   const params = useParams();
@@ -36,6 +44,7 @@ export default function PartidaPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [uploadingLoserPhoto, setUploadingLoserPhoto] = useState(false);
 
   useEffect(() => {
     loadGame();
@@ -95,6 +104,35 @@ export default function PartidaPage() {
     setShowShareMenu(false);
   }
 
+  // Manejar subida de foto del perdedor
+  async function handleLoserPhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !game) return;
+
+    setUploadingLoserPhoto(true);
+    try {
+      const compressedFile = await compressImage(file, 600);
+      const url = await uploadLoserPhoto(game.id, compressedFile);
+      
+      if (url) {
+        await updateGameLoserPhoto(game.id, url);
+        await loadGame(); // Recargar para ver la foto
+      }
+    } catch (err) {
+      console.error('Error uploading loser photo:', err);
+    }
+    setUploadingLoserPhoto(false);
+  }
+
+  // Eliminar foto del perdedor
+  async function handleRemoveLoserPhoto() {
+    if (!game?.loser_photo_url) return;
+    
+    await deleteLoserPhoto(game.loser_photo_url);
+    await updateGameLoserPhoto(game.id, null);
+    await loadGame();
+  }
+
   function generateShareText(game: Game): string {
     const date = new Date(game.created_at).toLocaleDateString('es-ES');
     const sortedPlayers = [...game.players].sort((a, b) => b.profit - a.profit);
@@ -122,6 +160,53 @@ export default function PartidaPage() {
   function getTotalChipsBought(gp: GamePlayer): number {
     if (!game) return 0;
     return game.buy_in * (1 + gp.rebuys);
+  }
+
+  // Calcular distribución de pagos (quién paga a quién)
+  interface Payment {
+    from: { name: string; avatar_color: string };
+    to: { name: string; avatar_color: string };
+    amount: number;
+  }
+
+  function calculatePayments(players: GamePlayer[]): Payment[] {
+    // Separar ganadores y perdedores
+    const debtors = players
+      .filter(p => p.profit < 0)
+      .map(p => ({ ...p, balance: Math.abs(p.profit) }))
+      .sort((a, b) => b.balance - a.balance);
+    
+    const creditors = players
+      .filter(p => p.profit > 0)
+      .map(p => ({ ...p, balance: p.profit }))
+      .sort((a, b) => b.balance - a.balance);
+
+    const payments: Payment[] = [];
+
+    // Algoritmo greedy para minimizar transacciones
+    let i = 0, j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      const debtor = debtors[i];
+      const creditor = creditors[j];
+      
+      const amount = Math.min(debtor.balance, creditor.balance);
+      
+      if (amount > 0.01) { // Ignorar cantidades muy pequeñas
+        payments.push({
+          from: { name: debtor.player.name, avatar_color: debtor.player.avatar_color },
+          to: { name: creditor.player.name, avatar_color: creditor.player.avatar_color },
+          amount: Math.round(amount * 100) / 100, // Redondear a 2 decimales
+        });
+      }
+      
+      debtor.balance -= amount;
+      creditor.balance -= amount;
+      
+      if (debtor.balance < 0.01) i++;
+      if (creditor.balance < 0.01) j++;
+    }
+
+    return payments;
   }
 
   if (loading) {
@@ -305,12 +390,20 @@ export default function PartidaPage() {
           {winner && winner.profit > 0 && (
             <div className="bg-gradient-to-r from-accent/20 to-warning/10 rounded-2xl p-6 border border-accent/30 mb-6 animate-fade-in" style={{ animationDelay: '0.1s' }}>
               <div className="flex items-center gap-4">
-                <div
-                  className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold"
-                  style={{ backgroundColor: winner.player.avatar_color }}
-                >
-                  {winner.player.name.charAt(0).toUpperCase()}
-                </div>
+                {winner.player.avatar_url ? (
+                  <img
+                    src={winner.player.avatar_url}
+                    alt={winner.player.name}
+                    className="w-14 h-14 rounded-full object-cover"
+                  />
+                ) : (
+                  <div
+                    className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold"
+                    style={{ backgroundColor: winner.player.avatar_color }}
+                  >
+                    {winner.player.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div className="flex-1">
                   <p className="text-sm text-accent font-medium">🎉 ¡Ganador de la noche!</p>
                   <p className="text-2xl font-bold text-foreground">{winner.player.name}</p>
@@ -359,12 +452,20 @@ export default function PartidaPage() {
                     </div>
 
                     {/* Avatar */}
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-                      style={{ backgroundColor: gp.player.avatar_color }}
-                    >
-                      {gp.player.name.charAt(0).toUpperCase()}
-                    </div>
+                    {gp.player.avatar_url ? (
+                      <img
+                        src={gp.player.avatar_url}
+                        alt={gp.player.name}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
+                        style={{ backgroundColor: gp.player.avatar_color }}
+                      >
+                        {gp.player.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
 
                     {/* Nombre y fichas */}
                     <div className="flex-1 min-w-0">
@@ -408,6 +509,129 @@ export default function PartidaPage() {
               })}
             </div>
           </div>
+
+          {/* Foto del perdedor */}
+          {(() => {
+            const loser = sortedPlayers[sortedPlayers.length - 1];
+            if (!loser || loser.profit >= 0) return null;
+
+            return (
+              <div className="bg-background-card rounded-2xl border border-border mt-6 overflow-hidden animate-fade-in" style={{ animationDelay: '0.15s' }}>
+                <div className="p-4 border-b border-border bg-gradient-to-r from-danger/10 to-warning/10">
+                  <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <Frown className="w-5 h-5 text-danger" />
+                    El Gran Perdedor 😭
+                  </h2>
+                  <p className="text-sm text-foreground-muted mt-1">
+                    {loser.player.name} perdió {Math.abs(loser.profit).toFixed(2)}€
+                  </p>
+                </div>
+
+                <div className="p-4">
+                  {game.loser_photo_url ? (
+                    <div className="relative">
+                      <img
+                        src={game.loser_photo_url}
+                        alt={`${loser.player.name} - el perdedor`}
+                        className="w-full max-h-96 object-contain rounded-xl"
+                      />
+                      <button
+                        onClick={handleRemoveLoserPhoto}
+                        className="absolute top-2 right-2 w-8 h-8 bg-danger/80 hover:bg-danger rounded-full flex items-center justify-center text-white transition-colors"
+                        title="Eliminar foto"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center py-8 px-4 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 transition-colors">
+                      {uploadingLoserPhoto ? (
+                        <Loader2 className="w-8 h-8 text-primary animate-spin mb-2" />
+                      ) : (
+                        <Camera className="w-8 h-8 text-foreground-muted mb-2" />
+                      )}
+                      <span className="text-sm text-foreground-muted text-center">
+                        {uploadingLoserPhoto ? 'Subiendo...' : 'Haz clic para subir la foto del perdedor'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLoserPhotoUpload}
+                        className="hidden"
+                        disabled={uploadingLoserPhoto}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Distribución de pagos */}
+          {(() => {
+            const payments = calculatePayments(game.players);
+            if (payments.length === 0) return null;
+            
+            return (
+              <div className="bg-background-card rounded-2xl border border-border mt-6 overflow-hidden animate-fade-in" style={{ animationDelay: '0.2s' }}>
+                <div className="p-4 border-b border-border bg-gradient-to-r from-primary/10 to-accent/10">
+                  <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-primary" />
+                    Liquidación de Cuentas
+                  </h2>
+                  <p className="text-sm text-foreground-muted mt-1">
+                    Quién debe pagar a quién para saldar las cuentas
+                  </p>
+                </div>
+
+                <div className="p-4 space-y-3">
+                  {payments.map((payment, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-3 p-3 bg-background rounded-xl border border-border animate-slide-in"
+                      style={{ animationDelay: `${(index + 1) * 0.1}s` }}
+                    >
+                      {/* Deudor */}
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                          style={{ backgroundColor: payment.from.avatar_color }}
+                        >
+                          {payment.from.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="font-medium text-foreground truncate">{payment.from.name}</span>
+                      </div>
+
+                      {/* Flecha y cantidad */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="flex items-center gap-1 px-3 py-1.5 bg-danger/10 text-danger rounded-full font-bold text-sm">
+                          <ArrowRight className="w-4 h-4" />
+                          <span>{payment.amount.toFixed(2)}€</span>
+                        </div>
+                      </div>
+
+                      {/* Acreedor */}
+                      <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+                        <span className="font-medium text-foreground truncate">{payment.to.name}</span>
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                          style={{ backgroundColor: payment.to.avatar_color }}
+                        >
+                          {payment.to.name.charAt(0).toUpperCase()}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="px-4 pb-4">
+                  <p className="text-xs text-foreground-muted text-center">
+                    💡 {payments.length} transaccion{payments.length !== 1 ? 'es' : ''} para liquidar todas las cuentas
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Notas */}
           {game.notes && (

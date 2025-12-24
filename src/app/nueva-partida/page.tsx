@@ -501,12 +501,20 @@ export default function NuevaPartidaPage() {
                         onClick={() => addPlayerToGame(player)}
                         className="w-full px-4 py-3 text-left hover:bg-background flex items-center gap-3 transition-colors"
                       >
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                          style={{ backgroundColor: player.avatar_color }}
-                        >
-                          {player.name.charAt(0).toUpperCase()}
-                        </div>
+                        {player.avatar_url ? (
+                          <img
+                            src={player.avatar_url}
+                            alt={player.name}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                            style={{ backgroundColor: player.avatar_color }}
+                          >
+                            {player.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
                         <span className="text-foreground">{player.name}</span>
                       </button>
                     ))
@@ -552,12 +560,20 @@ export default function NuevaPartidaPage() {
                     >
                       <div className="flex items-start gap-3">
                         {/* Avatar */}
-                        <div
-                          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
-                          style={{ backgroundColor: gp.player.avatar_color }}
-                        >
-                          {gp.player.name.charAt(0).toUpperCase()}
-                        </div>
+                        {gp.player.avatar_url ? (
+                          <img
+                            src={gp.player.avatar_url}
+                            alt={gp.player.name}
+                            className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
+                            style={{ backgroundColor: gp.player.avatar_color }}
+                          >
+                            {gp.player.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
 
                         {/* Info del jugador */}
                         <div className="flex-1 min-w-0">

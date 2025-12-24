@@ -67,8 +67,13 @@ export async function createPlayer(playerData: CreatePlayerData): Promise<Player
   return data as Player;
 }
 
+// Datos para actualizar jugador (incluye avatar_url)
+export interface UpdatePlayerData extends Partial<CreatePlayerData> {
+  avatar_url?: string | null;
+}
+
 // Actualizar un jugador
-export async function updatePlayer(id: string, updates: Partial<CreatePlayerData>): Promise<Player | null> {
+export async function updatePlayer(id: string, updates: UpdatePlayerData): Promise<Player | null> {
   const db = checkSupabase();
 
   const { data, error } = await db
