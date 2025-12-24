@@ -125,12 +125,22 @@ export default function EditarPartidaPage() {
     ));
   };
 
-  // Actualizar rebuys
+  // Actualizar rebuys con delta (+1 o -1)
   const updateRebuys = (playerId: string, delta: number) => {
     setSelectedPlayers(selectedPlayers.map(p => {
       if (p.player_id === playerId) {
-        const newRebuys = Math.max(0, p.rebuys + delta);
+        const newRebuys = Math.max(0, Math.round((p.rebuys + delta) * 10) / 10);
         return { ...p, rebuys: newRebuys };
+      }
+      return p;
+    }));
+  };
+
+  // Establecer rebuys directamente (para input manual)
+  const setRebuysDirectly = (playerId: string, value: number) => {
+    setSelectedPlayers(selectedPlayers.map(p => {
+      if (p.player_id === playerId) {
+        return { ...p, rebuys: Math.max(0, value) };
       }
       return p;
     }));
@@ -507,14 +517,28 @@ export default function EditarPartidaPage() {
                               <button
                                 type="button"
                                 onClick={() => updateRebuys(gp.player_id, -1)}
-                                disabled={gp.rebuys === 0}
+                                disabled={gp.rebuys <= 0}
                                 className="w-8 h-8 rounded-lg bg-background-secondary border border-border flex items-center justify-center text-foreground-muted hover:text-foreground disabled:opacity-30 transition-colors"
                               >
                                 <Minus className="w-4 h-4" />
                               </button>
-                              <span className="w-8 text-center font-bold text-foreground">
-                                {gp.rebuys}
-                              </span>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={gp.rebuys}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(',', '.');
+                                  if (val === '' || val === '0') {
+                                    setRebuysDirectly(gp.player_id, 0);
+                                  } else {
+                                    const num = parseFloat(val);
+                                    if (!isNaN(num) && num >= 0) {
+                                      setRebuysDirectly(gp.player_id, num);
+                                    }
+                                  }
+                                }}
+                                className="w-12 h-8 text-center font-bold text-foreground bg-background border border-border rounded-lg focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none"
+                              />
                               <button
                                 type="button"
                                 onClick={() => updateRebuys(gp.player_id, 1)}
