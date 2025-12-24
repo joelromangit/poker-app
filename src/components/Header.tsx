@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Spade, Users, Plus } from 'lucide-react';
+import InstallPrompt from './InstallPrompt';
 
 export default function Header() {
   const pathname = usePathname();
@@ -29,6 +30,9 @@ export default function Header() {
           </Link>
           
           <nav className="flex items-center gap-2 sm:gap-3">
+            {/* Botón de instalar PWA */}
+            <InstallPrompt />
+            
             {navLinks.map(({ href, label, icon: Icon }) => {
               const isActive = pathname === href;
               return (

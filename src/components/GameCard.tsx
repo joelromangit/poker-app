@@ -21,7 +21,10 @@ export default function GameCard({ game, index }: GameCardProps) {
     minute: '2-digit',
   });
 
-  const isWinner = game.top_winner_profit > 0;
+  // Proteger contra valores null/undefined
+  const totalPot = game.total_pot ?? 0;
+  const topWinnerProfit = game.top_winner_profit ?? 0;
+  const isWinner = topWinnerProfit > 0;
 
   return (
     <Link href={`/partida/${game.id}`}>
@@ -49,7 +52,7 @@ export default function GameCard({ game, index }: GameCardProps) {
           <div className="flex items-center gap-2">
             <Euro className="w-5 h-5 text-accent" />
             <span className="text-2xl font-bold text-foreground">
-              {game.total_pot.toFixed(2)}
+              {totalPot.toFixed(2)}
             </span>
           </div>
         </div>
@@ -72,7 +75,7 @@ export default function GameCard({ game, index }: GameCardProps) {
               <TrendingDown className="w-4 h-4" />
             )}
             <span className="font-bold">
-              {isWinner ? '+' : ''}{game.top_winner_profit.toFixed(2)}€
+              {isWinner ? '+' : ''}{topWinnerProfit.toFixed(2)}€
             </span>
           </div>
         </div>

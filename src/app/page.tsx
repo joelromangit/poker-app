@@ -10,6 +10,7 @@ import { getGamesSummary } from '@/lib/games';
 import { GameSummary } from '@/types';
 import { TrendingUp, Euro, Spade, FileWarning, ArrowRight, X } from 'lucide-react';
 import { getDraft, clearDraft } from './nueva-partida/page';
+import { InstallBanner } from '@/components/InstallPrompt';
 
 export default function Home() {
   const [games, setGames] = useState<GameSummary[]>([]);
@@ -175,6 +176,9 @@ export default function Home() {
           </p>
         </div>
       </footer>
+
+      {/* Banner de instalación PWA */}
+      <InstallBanner />
     </>
   );
 }
