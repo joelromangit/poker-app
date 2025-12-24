@@ -20,6 +20,7 @@ import {
   FileText,
   Trash2,
   Share2,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function PartidaPage() {
@@ -81,18 +82,30 @@ export default function PartidaPage() {
   function generateShareText(game: Game): string {
     const date = new Date(game.created_at).toLocaleDateString('es-ES');
     const sortedPlayers = [...game.players].sort((a, b) => b.profit - a.profit);
+    const totalRebuys = game.players.reduce((sum, gp) => sum + gp.rebuys, 0);
     
     let text = `🃏 Partida de Poker - ${date}\n`;
-    text += `💰 Bote: ${game.total_pot.toFixed(2)}€\n\n`;
+    text += `💰 Bote: ${game.total_pot.toFixed(2)}€`;
+    if (totalRebuys > 0) {
+      text += ` (${totalRebuys} rebuys)`;
+    }
+    text += `\n\n`;
     text += `Resultados:\n`;
     
     sortedPlayers.forEach((gp, i) => {
       const emoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '•';
       const sign = gp.profit > 0 ? '+' : '';
-      text += `${emoji} ${gp.player.name}: ${sign}${gp.profit.toFixed(2)}€\n`;
+      const rebuyText = gp.rebuys > 0 ? ` (${gp.rebuys}R)` : '';
+      text += `${emoji} ${gp.player.name}${rebuyText}: ${sign}${gp.profit.toFixed(2)}€\n`;
     });
     
     return text;
+  }
+
+  // Calcular fichas totales compradas (buy-in + rebuys)
+  function getTotalChipsBought(gp: GamePlayer): number {
+    if (!game) return 0;
+    return game.buy_in * (1 + gp.rebuys);
   }
 
   if (loading) {
@@ -137,6 +150,7 @@ export default function PartidaPage() {
 
   const sortedPlayers = [...game.players].sort((a, b) => b.profit - a.profit);
   const winner = sortedPlayers[0];
+  const totalRebuys = game.players.reduce((sum, gp) => sum + gp.rebuys, 0);
 
   return (
     <>
@@ -189,7 +203,7 @@ export default function PartidaPage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="bg-background rounded-xl p-4 text-center">
                 <Euro className="w-5 h-5 text-accent mx-auto mb-1" />
                 <p className="text-xl font-bold text-foreground">{game.total_pot.toFixed(2)}€</p>
@@ -204,6 +218,11 @@ export default function PartidaPage() {
                 <Coins className="w-5 h-5 text-warning mx-auto mb-1" />
                 <p className="text-xl font-bold text-foreground">{game.chip_value}€</p>
                 <p className="text-xs text-foreground-muted">Valor ficha</p>
+              </div>
+              <div className="bg-background rounded-xl p-4 text-center">
+                <RefreshCw className="w-5 h-5 text-primary mx-auto mb-1" />
+                <p className="text-xl font-bold text-foreground">{totalRebuys}</p>
+                <p className="text-xs text-foreground-muted">Rebuys</p>
               </div>
             </div>
           </div>
@@ -225,8 +244,8 @@ export default function PartidaPage() {
                 <div className="text-right">
                   <p className="text-2xl font-bold text-success">+{winner.profit.toFixed(2)}€</p>
                   <p className="text-sm text-foreground-muted">
-                    {winner.final_chips - winner.initial_chips > 0 ? '+' : ''}
-                    {winner.final_chips - winner.initial_chips} fichas
+                    {winner.final_chips - getTotalChipsBought(winner) > 0 ? '+' : ''}
+                    {winner.final_chips - getTotalChipsBought(winner)} fichas
                   </p>
                 </div>
               </div>
@@ -246,7 +265,8 @@ export default function PartidaPage() {
               {sortedPlayers.map((gp, index) => {
                 const isWinner = gp.profit > 0;
                 const isLoser = gp.profit < 0;
-                const chipDiff = gp.final_chips - gp.initial_chips;
+                const totalChipsBought = getTotalChipsBought(gp);
+                const chipDiff = gp.final_chips - totalChipsBought;
 
                 return (
                   <div
@@ -273,14 +293,27 @@ export default function PartidaPage() {
                     </div>
 
                     {/* Nombre y fichas */}
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground">{gp.player.name}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-foreground truncate">{gp.player.name}</p>
+                        {gp.rebuys > 0 && (
+                          <span className="flex items-center gap-0.5 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full flex-shrink-0">
+                            <RefreshCw className="w-3 h-3" />
+                            {gp.rebuys}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-foreground-muted">
-                        {gp.initial_chips} → {gp.final_chips} fichas
+                        {totalChipsBought} → {gp.final_chips} fichas
                         <span className={`ml-2 ${chipDiff > 0 ? 'text-success' : chipDiff < 0 ? 'text-danger' : ''}`}>
                           ({chipDiff > 0 ? '+' : ''}{chipDiff})
                         </span>
                       </p>
+                      {gp.rebuys > 0 && (
+                        <p className="text-xs text-foreground-muted">
+                          Inversión: {(totalChipsBought * game.chip_value).toFixed(2)}€ ({gp.rebuys} rebuy{gp.rebuys > 1 ? 's' : ''})
+                        </p>
+                      )}
                     </div>
 
                     {/* Resultado */}
@@ -316,7 +349,7 @@ export default function PartidaPage() {
           {/* Info adicional */}
           <div className="mt-6 p-4 bg-background-secondary rounded-xl text-center">
             <p className="text-sm text-foreground-muted">
-              Buy-in: <span className="font-medium text-foreground">{game.buy_in} fichas</span> × <span className="font-medium text-foreground">{game.chip_value}€</span> = <span className="font-medium text-accent">{(game.buy_in * game.chip_value).toFixed(2)}€</span> por jugador
+              Buy-in: <span className="font-medium text-foreground">{game.buy_in} fichas</span> × <span className="font-medium text-foreground">{game.chip_value}€</span> = <span className="font-medium text-accent">{(game.buy_in * game.chip_value).toFixed(2)}€</span> por entrada
             </p>
           </div>
         </div>

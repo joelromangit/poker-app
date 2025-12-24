@@ -15,6 +15,7 @@ export interface GamePlayer {
   player: Player; // Datos del jugador
   initial_chips: number;
   final_chips: number;
+  rebuys: number; // Número de rebuys (compras adicionales de fichas)
   profit: number;
 }
 
@@ -58,6 +59,7 @@ export interface GameFormPlayer {
   player_id: string;
   player: Player;
   final_chips: string;
+  rebuys: number; // Número de rebuys (0 = solo buy-in inicial)
 }
 
 // Para crear jugador

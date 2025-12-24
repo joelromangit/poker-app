@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import NumberInput from '@/components/NumberInput';
@@ -9,7 +9,7 @@ import { getPlayers, createPlayer } from '@/lib/players';
 import { Player, GameFormPlayer } from '@/types';
 import { 
   Plus, 
-  Trash2, 
+  Minus,
   Euro, 
   Coins, 
   Users, 
@@ -23,13 +23,67 @@ import {
   X,
   Check,
   Loader2,
-  UserPlus
+  UserPlus,
+  RefreshCw,
+  Trash2,
+  FileWarning
 } from 'lucide-react';
+
+// Clave para localStorage
+const DRAFT_KEY = 'poker-draft-game';
+
+// Interfaz para el borrador
+interface GameDraft {
+  chipValue: string;
+  buyIn: string;
+  players: Array<{
+    player_id: string;
+    final_chips: string;
+    rebuys: number;
+  }>;
+  notes: string;
+  savedAt: string;
+}
+
+// Función para guardar borrador
+export function saveDraft(draft: Omit<GameDraft, 'savedAt'>) {
+  if (typeof window === 'undefined') return;
+  const draftWithTime: GameDraft = {
+    ...draft,
+    savedAt: new Date().toISOString(),
+  };
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draftWithTime));
+}
+
+// Función para obtener borrador
+export function getDraft(): GameDraft | null {
+  if (typeof window === 'undefined') return null;
+  const saved = localStorage.getItem(DRAFT_KEY);
+  if (!saved) return null;
+  try {
+    return JSON.parse(saved);
+  } catch {
+    return null;
+  }
+}
+
+// Función para eliminar borrador
+export function clearDraft() {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(DRAFT_KEY);
+}
+
+// Función para verificar si hay borrador (exportada para usar en home)
+export function hasDraft(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(DRAFT_KEY) !== null;
+}
 
 export default function NuevaPartidaPage() {
   const router = useRouter();
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
   const [loadingPlayers, setLoadingPlayers] = useState(true);
+  const [draftLoaded, setDraftLoaded] = useState(false);
   
   const [chipValue, setChipValue] = useState('0.05');
   const [buyIn, setBuyIn] = useState('100');
@@ -37,6 +91,7 @@ export default function NuevaPartidaPage() {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [showDraftBanner, setShowDraftBanner] = useState(false);
 
   // Modal para nuevo jugador
   const [showNewPlayerModal, setShowNewPlayerModal] = useState(false);
@@ -46,6 +101,7 @@ export default function NuevaPartidaPage() {
   // Dropdown de selección
   const [showPlayerDropdown, setShowPlayerDropdown] = useState(false);
 
+  // Cargar jugadores y borrador
   useEffect(() => {
     loadPlayers();
   }, []);
@@ -55,6 +111,66 @@ export default function NuevaPartidaPage() {
     const players = await getPlayers();
     setAvailablePlayers(players);
     setLoadingPlayers(false);
+
+    // Cargar borrador después de tener los jugadores
+    const draft = getDraft();
+    if (draft && draft.players.length > 0) {
+      setShowDraftBanner(true);
+      // Restaurar valores
+      setChipValue(draft.chipValue);
+      setBuyIn(draft.buyIn);
+      setNotes(draft.notes);
+      
+      // Restaurar jugadores (solo los que existen)
+      const restoredPlayers: GameFormPlayer[] = [];
+      for (const dp of draft.players) {
+        const player = players.find(p => p.id === dp.player_id);
+        if (player) {
+          restoredPlayers.push({
+            player_id: dp.player_id,
+            player: player,
+            final_chips: dp.final_chips,
+            rebuys: dp.rebuys,
+          });
+        }
+      }
+      setSelectedPlayers(restoredPlayers);
+    }
+    setDraftLoaded(true);
+  };
+
+  // Guardar borrador automáticamente cuando cambian los datos
+  useEffect(() => {
+    if (!draftLoaded) return; // No guardar hasta que se haya cargado
+    
+    // Solo guardar si hay datos significativos
+    const hasData = selectedPlayers.length > 0 || notes.trim() !== '';
+    
+    if (hasData) {
+      saveDraft({
+        chipValue,
+        buyIn,
+        players: selectedPlayers.map(p => ({
+          player_id: p.player_id,
+          final_chips: p.final_chips,
+          rebuys: p.rebuys,
+        })),
+        notes,
+      });
+    } else {
+      // Si no hay datos, limpiar el borrador
+      clearDraft();
+    }
+  }, [chipValue, buyIn, selectedPlayers, notes, draftLoaded]);
+
+  // Descartar borrador
+  const handleDiscardDraft = () => {
+    clearDraft();
+    setChipValue('0.05');
+    setBuyIn('100');
+    setSelectedPlayers([]);
+    setNotes('');
+    setShowDraftBanner(false);
   };
 
   // Jugadores no seleccionados aún
@@ -68,6 +184,7 @@ export default function NuevaPartidaPage() {
       player_id: player.id,
       player: player,
       final_chips: '',
+      rebuys: 0,
     }]);
     setShowPlayerDropdown(false);
   };
@@ -82,6 +199,17 @@ export default function NuevaPartidaPage() {
     setSelectedPlayers(selectedPlayers.map(p => 
       p.player_id === playerId ? { ...p, final_chips: value } : p
     ));
+  };
+
+  // Actualizar rebuys
+  const updateRebuys = (playerId: string, delta: number) => {
+    setSelectedPlayers(selectedPlayers.map(p => {
+      if (p.player_id === playerId) {
+        const newRebuys = Math.max(0, p.rebuys + delta);
+        return { ...p, rebuys: newRebuys };
+      }
+      return p;
+    }));
   };
 
   // Crear nuevo jugador
@@ -101,20 +229,35 @@ export default function NuevaPartidaPage() {
     setCreatingPlayer(false);
   };
 
-  // Calcular ganancias/pérdidas
-  const calculateProfit = (finalChips: string): number => {
-    const chips = parseFloat(finalChips) || 0;
+  // Calcular fichas totales compradas por un jugador (buy-in + rebuys)
+  const getTotalChipsBought = (rebuys: number): number => {
     const initial = parseFloat(buyIn) || 0;
-    const value = parseFloat(chipValue) || 0;
-    return (chips - initial) * value;
+    return initial * (1 + rebuys);
   };
 
-  // Calcular bote total
-  const totalPot = (parseFloat(buyIn) || 0) * (parseFloat(chipValue) || 0) * selectedPlayers.length;
+  // Calcular ganancias/pérdidas (considerando rebuys)
+  const calculateProfit = (finalChips: string, rebuys: number): number => {
+    const chips = parseFloat(finalChips) || 0;
+    const totalBought = getTotalChipsBought(rebuys);
+    const value = parseFloat(chipValue) || 0;
+    return (chips - totalBought) * value;
+  };
 
-  // Verificar balance
+  // Calcular inversión total de un jugador en €
+  const calculateInvestment = (rebuys: number): number => {
+    const totalBought = getTotalChipsBought(rebuys);
+    const value = parseFloat(chipValue) || 0;
+    return totalBought * value;
+  };
+
+  // Calcular bote total (considerando rebuys de todos)
+  const totalPot = selectedPlayers.reduce((sum, p) => {
+    return sum + calculateInvestment(p.rebuys);
+  }, 0);
+
+  // Verificar balance (considerando rebuys)
   const totalFinalChips = selectedPlayers.reduce((sum, p) => sum + (parseFloat(p.final_chips) || 0), 0);
-  const expectedTotalChips = (parseFloat(buyIn) || 0) * selectedPlayers.length;
+  const expectedTotalChips = selectedPlayers.reduce((sum, p) => sum + getTotalChipsBought(p.rebuys), 0);
   const isBalanced = Math.abs(totalFinalChips - expectedTotalChips) < 0.01;
   const allPlayersHaveData = selectedPlayers.length >= 2 && 
     selectedPlayers.every(p => p.final_chips !== '' && parseFloat(p.final_chips) >= 0);
@@ -144,6 +287,7 @@ export default function NuevaPartidaPage() {
       const playersData = selectedPlayers.map(p => ({
         player_id: p.player_id,
         final_chips: parseFloat(p.final_chips) || 0,
+        rebuys: p.rebuys,
       }));
 
       const game = await createGame(
@@ -154,6 +298,8 @@ export default function NuevaPartidaPage() {
       );
 
       if (game) {
+        // Limpiar borrador al guardar exitosamente
+        clearDraft();
         router.push(`/partida/${game.id}`);
       } else {
         setError('Error al guardar la partida. Verifica la conexión.');
@@ -175,9 +321,29 @@ export default function NuevaPartidaPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
             Nueva Partida
           </h1>
-          <p className="text-foreground-muted mb-8">
+          <p className="text-foreground-muted mb-6">
             Configura los valores y selecciona a los jugadores
           </p>
+
+          {/* Banner de borrador recuperado */}
+          {showDraftBanner && (
+            <div className="mb-6 p-4 bg-warning/10 border border-warning/30 rounded-xl flex items-center justify-between gap-4 animate-slide-in">
+              <div className="flex items-center gap-3">
+                <FileWarning className="w-5 h-5 text-warning flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Partida recuperada</p>
+                  <p className="text-xs text-foreground-muted">Se ha restaurado tu partida anterior</p>
+                </div>
+              </div>
+              <button
+                onClick={handleDiscardDraft}
+                className="flex items-center gap-1 text-sm text-foreground-muted hover:text-danger transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Descartar</span>
+              </button>
+            </div>
+          )}
 
           {/* Configuración de fichas */}
           <section className="bg-background-card rounded-2xl p-5 sm:p-6 border border-border mb-6">
@@ -203,7 +369,7 @@ export default function NuevaPartidaPage() {
 
               <div>
                 <label className="block text-sm text-foreground-muted mb-2">
-                  Fichas iniciales por jugador
+                  Fichas por buy-in
                 </label>
                 <NumberInput
                   value={buyIn}
@@ -220,11 +386,11 @@ export default function NuevaPartidaPage() {
             {selectedPlayers.length > 0 && (
               <div className="mt-4 p-4 bg-background rounded-xl border border-border">
                 <div className="flex items-center justify-between">
-                  <span className="text-foreground-muted">Bote total estimado:</span>
+                  <span className="text-foreground-muted">Bote total:</span>
                   <span className="text-xl font-bold text-accent">{totalPot.toFixed(2)}€</span>
                 </div>
                 <p className="text-xs text-foreground-muted mt-1">
-                  {selectedPlayers.length} jugadores × {buyIn} fichas × {chipValue}€/ficha
+                  {expectedTotalChips} fichas en juego ({selectedPlayers.reduce((s, p) => s + p.rebuys, 0)} rebuys)
                 </p>
               </div>
             )}
@@ -305,17 +471,19 @@ export default function NuevaPartidaPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {selectedPlayers.map((gp, index) => {
-                  const profit = calculateProfit(gp.final_chips);
+                {selectedPlayers.map((gp) => {
+                  const profit = calculateProfit(gp.final_chips, gp.rebuys);
                   const hasProfit = profit > 0;
                   const hasLoss = profit < 0;
+                  const totalChips = getTotalChipsBought(gp.rebuys);
+                  const investment = calculateInvestment(gp.rebuys);
 
                   return (
                     <div
                       key={gp.player_id}
                       className="bg-background rounded-xl p-4 border border-border"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-start gap-3">
                         {/* Avatar */}
                         <div
                           className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
@@ -324,45 +492,82 @@ export default function NuevaPartidaPage() {
                           {gp.player.name.charAt(0).toUpperCase()}
                         </div>
 
-                        {/* Nombre y fichas */}
+                        {/* Info del jugador */}
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-foreground truncate">
-                            {gp.player.name}
-                          </p>
-                          <div className="mt-2">
-                            <label className="block text-xs text-foreground-muted mb-1">
-                              Fichas finales
-                            </label>
-                            <NumberInput
-                              value={gp.final_chips}
-                              onChange={(val) => updateFinalChips(gp.player_id, val)}
-                              step={10}
-                              min={0}
-                              placeholder="Ej: 150"
-                              className="text-sm [&_input]:py-2"
-                            />
+                          <div className="flex items-center justify-between">
+                            <p className="font-semibold text-foreground truncate">
+                              {gp.player.name}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => removePlayerFromGame(gp.player_id)}
+                              className="p-1 text-foreground-muted hover:text-danger transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
                           </div>
-                        </div>
 
-                        {/* Resultado y eliminar */}
-                        <div className="flex flex-col items-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => removePlayerFromGame(gp.player_id)}
-                            className="p-2 text-foreground-muted hover:text-danger transition-colors"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                          
-                          {gp.final_chips && (
-                            <div className={`flex items-center gap-1 font-bold ${
-                              hasProfit ? 'text-success' : hasLoss ? 'text-danger' : 'text-foreground-muted'
-                            }`}>
-                              {hasProfit && <TrendingUp className="w-4 h-4" />}
-                              {hasLoss && <TrendingDown className="w-4 h-4" />}
-                              <span>{hasProfit ? '+' : ''}{profit.toFixed(2)}€</span>
+                          {/* Rebuys y Fichas finales */}
+                          <div className="mt-3 grid grid-cols-2 gap-3">
+                            {/* Rebuys */}
+                            <div>
+                              <label className="block text-xs text-foreground-muted mb-1 flex items-center gap-1">
+                                <RefreshCw className="w-3 h-3" />
+                                Rebuys
+                              </label>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => updateRebuys(gp.player_id, -1)}
+                                  disabled={gp.rebuys === 0}
+                                  className="w-8 h-8 rounded-lg bg-background-secondary border border-border flex items-center justify-center text-foreground-muted hover:text-foreground disabled:opacity-30 transition-colors"
+                                >
+                                  <Minus className="w-4 h-4" />
+                                </button>
+                                <span className="w-8 text-center font-bold text-foreground">
+                                  {gp.rebuys}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => updateRebuys(gp.player_id, 1)}
+                                  className="w-8 h-8 rounded-lg bg-background-secondary border border-border flex items-center justify-center text-foreground-muted hover:text-foreground transition-colors"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
-                          )}
+
+                            {/* Fichas finales */}
+                            <div>
+                              <label className="block text-xs text-foreground-muted mb-1">
+                                Fichas finales
+                              </label>
+                              <NumberInput
+                                value={gp.final_chips}
+                                onChange={(val) => updateFinalChips(gp.player_id, val)}
+                                step={10}
+                                min={0}
+                                placeholder={`${totalChips}`}
+                                className="text-sm [&_input]:py-1.5"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Info de inversión y resultado */}
+                          <div className="mt-2 flex items-center justify-between text-xs">
+                            <span className="text-foreground-muted">
+                              Inversión: {totalChips} fichas ({investment.toFixed(2)}€)
+                            </span>
+                            {gp.final_chips && (
+                              <span className={`font-bold ${
+                                hasProfit ? 'text-success' : hasLoss ? 'text-danger' : 'text-foreground-muted'
+                              }`}>
+                                {hasProfit && <TrendingUp className="w-3 h-3 inline mr-1" />}
+                                {hasLoss && <TrendingDown className="w-3 h-3 inline mr-1" />}
+                                {hasProfit ? '+' : ''}{profit.toFixed(2)}€
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
