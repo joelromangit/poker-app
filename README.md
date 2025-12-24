@@ -1,36 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🃏 Poker Nights
 
-## Getting Started
+Una aplicación elegante para llevar el registro de tus partidas de poker con amigos. Calcula automáticamente las ganancias y pérdidas en euros basándose en el valor de las fichas.
 
-First, run the development server:
+![Next.js](https://img.shields.io/badge/Next.js-15-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38bdf8)
+![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ecf8e)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## ✨ Características
+
+- 📱 **Diseño responsive** - Funciona perfectamente en móvil y escritorio
+- 🎨 **Tema elegante** - Inspirado en las mesas de poker
+- 💰 **Cálculo automático** - Convierte fichas a euros automáticamente
+- ✅ **Validación de balance** - Verifica que las fichas cuadren
+- 📊 **Estadísticas** - Ve el historial completo de partidas
+- 🔗 **Compartir** - Comparte los resultados fácilmente
+
+## 🚀 Configuración
+
+### 1. Configurar Supabase
+
+1. Crea una cuenta en [Supabase](https://supabase.com)
+2. Crea un nuevo proyecto
+3. Ve a **SQL Editor** y ejecuta el contenido de `supabase-schema.sql`
+4. Ve a **Settings > API** y copia:
+   - Project URL
+   - anon public key
+
+### 2. Configurar variables de entorno
+
+Crea un archivo `.env.local` en la raíz del proyecto:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=tu-anon-key-aqui
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Instalar y ejecutar
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Instalar dependencias
+npm install
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Desarrollo
+npm run dev
 
-## Learn More
+# Producción
+npm run build
+npm start
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 🌐 Desplegar en Vercel
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Sube el repositorio a GitHub
+2. Importa el proyecto en [Vercel](https://vercel.com)
+3. Añade las variables de entorno en la configuración del proyecto
+4. ¡Deploy automático!
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📝 Uso
 
-## Deploy on Vercel
+### Nueva partida
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Pulsa "Nueva Partida"
+2. Configura el valor de cada ficha (ej: 0.05€)
+3. Indica las fichas iniciales por jugador (ej: 100)
+4. Añade los jugadores con sus fichas finales
+5. La app calcula automáticamente las ganancias/pérdidas
+6. Guarda cuando el balance cuadre
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Ver historial
+
+- La página principal muestra todas las partidas
+- Estadísticas generales en la parte superior
+- Pulsa en una partida para ver los detalles
+
+## 🛠️ Tecnologías
+
+- **Next.js 15** - Framework React con App Router
+- **TypeScript** - Tipado estático
+- **Tailwind CSS v4** - Estilos utilitarios
+- **Supabase** - Base de datos PostgreSQL
+- **Lucide Icons** - Iconos SVG
+
+## 📄 Licencia
+
+MIT
