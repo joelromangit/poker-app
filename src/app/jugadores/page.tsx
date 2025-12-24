@@ -13,7 +13,9 @@ import {
   X,
   Check,
   Loader2,
-  Pencil
+  Pencil,
+  Sparkles,
+  Rainbow
 } from 'lucide-react';
 
 const AVATAR_COLORS = [
@@ -45,6 +47,11 @@ export default function JugadoresPage() {
   const [saving, setSaving] = useState(false);
   
   const [error, setError] = useState('');
+  
+  // Who's Gay modal
+  const [showGayModal, setShowGayModal] = useState(false);
+  const [gayPlayer, setGayPlayer] = useState<Player | null>(null);
+  const [isSpinning, setIsSpinning] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -132,6 +139,32 @@ export default function JugadoresPage() {
 
   const getPlayerStats = (playerId: string) => stats.get(playerId);
 
+  // Who's Gay? - Seleccionar jugador aleatorio con animación
+  const handleWhosGay = () => {
+    if (players.length === 0) return;
+    
+    setShowGayModal(true);
+    setIsSpinning(true);
+    setGayPlayer(null);
+
+    // Animación de "ruleta" mostrando jugadores aleatorios
+    let count = 0;
+    const maxCount = 15;
+    const interval = setInterval(() => {
+      const randomIndex = Math.floor(Math.random() * players.length);
+      setGayPlayer(players[randomIndex]);
+      count++;
+      
+      if (count >= maxCount) {
+        clearInterval(interval);
+        // Selección final
+        const finalIndex = Math.floor(Math.random() * players.length);
+        setGayPlayer(players[finalIndex]);
+        setIsSpinning(false);
+      }
+    }, 100);
+  };
+
   // Componente de selector de color
   const ColorPicker = ({ selected, onChange }: { selected: string; onChange: (color: string) => void }) => (
     <div className="flex gap-2 flex-wrap">
@@ -167,13 +200,26 @@ export default function JugadoresPage() {
                 {players.length} jugadores registrados
               </p>
             </div>
-            <button
-              onClick={() => setShowNewPlayer(true)}
-              className="btn-primary px-4 py-2 rounded-xl flex items-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="hidden sm:inline">Nuevo Jugador</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Who's Gay Button */}
+              {players.length > 0 && (
+                <button
+                  onClick={handleWhosGay}
+                  className="px-4 py-2 rounded-xl flex items-center gap-2 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white font-medium hover:opacity-90 transition-opacity"
+                >
+                  <Rainbow className="w-5 h-5" />
+                  <span className="hidden sm:inline">Who's Gay?</span>
+                </button>
+              )}
+              
+              <button
+                onClick={() => setShowNewPlayer(true)}
+                className="btn-primary px-4 py-2 rounded-xl flex items-center gap-2"
+              >
+                <Plus className="w-5 h-5" />
+                <span className="hidden sm:inline">Nuevo Jugador</span>
+              </button>
+            </div>
           </div>
 
           {/* Modal crear jugador */}
@@ -458,6 +504,85 @@ export default function JugadoresPage() {
           )}
         </div>
       </main>
+
+      {/* Who's Gay Modal */}
+      {showGayModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-background-card rounded-2xl p-8 w-full max-w-sm border border-border animate-slide-in text-center relative overflow-hidden">
+            {/* Fondo con gradiente arcoíris animado */}
+            <div className="absolute inset-0 opacity-10 bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500" />
+            
+            <button
+              onClick={() => setShowGayModal(false)}
+              className="absolute top-4 right-4 p-2 text-foreground-muted hover:text-foreground transition-colors z-10"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="relative z-10">
+              <div className="flex justify-center mb-4">
+                <Rainbow className="w-12 h-12 text-pink-500" />
+              </div>
+              
+              <h2 className="text-2xl font-bold text-foreground mb-6">
+                Who's Gay? 🏳️‍🌈
+              </h2>
+
+              {gayPlayer && (
+                <div className={`transition-all duration-200 ${isSpinning ? 'scale-95 opacity-70' : 'scale-100 opacity-100'}`}>
+                  {/* Avatar grande */}
+                  <div
+                    className={`w-24 h-24 rounded-full flex items-center justify-center text-white font-bold text-4xl mx-auto mb-4 ${
+                      isSpinning ? 'animate-pulse' : 'animate-bounce'
+                    }`}
+                    style={{ backgroundColor: gayPlayer.avatar_color }}
+                  >
+                    {gayPlayer.name.charAt(0).toUpperCase()}
+                  </div>
+
+                  {/* Nombre */}
+                  <p className={`text-3xl font-bold mb-2 ${
+                    isSpinning 
+                      ? 'text-foreground-muted' 
+                      : 'text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500'
+                  }`}>
+                    {gayPlayer.name}
+                  </p>
+
+                  {!isSpinning && (
+                    <>
+                      <p className="text-lg text-foreground-muted mb-4">
+                        ¡Es gay! 🎉
+                      </p>
+                      
+                      {/* Confeti emoji */}
+                      <div className="text-4xl animate-bounce">
+                        🏳️‍🌈✨🎊
+                      </div>
+                    </>
+                  )}
+
+                  {isSpinning && (
+                    <div className="flex items-center justify-center gap-2 text-foreground-muted">
+                      <Sparkles className="w-5 h-5 animate-spin" />
+                      <span>Seleccionando...</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!isSpinning && (
+                <button
+                  onClick={handleWhosGay}
+                  className="mt-6 px-6 py-3 rounded-xl bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white font-medium hover:opacity-90 transition-opacity"
+                >
+                  🎲 ¡Otra vez!
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

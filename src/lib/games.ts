@@ -162,6 +162,77 @@ export async function createGame(
   return getGameById(gameData.id);
 }
 
+// Actualizar una partida existente
+export async function updateGame(
+  gameId: string,
+  chipValue: number,
+  buyIn: number,
+  players: { player_id: string; final_chips: number; rebuys: number }[],
+  notes?: string
+): Promise<Game | null> {
+  const db = checkSupabase();
+
+  // Calcular el bote total incluyendo rebuys
+  const totalPot = players.reduce((sum, p) => {
+    const totalChipsBought = buyIn * (1 + p.rebuys);
+    return sum + (totalChipsBought * chipValue);
+  }, 0);
+
+  // 1. Actualizar la partida
+  const { error: gameError } = await db
+    .from('games')
+    .update({
+      chip_value: chipValue,
+      buy_in: buyIn,
+      total_pot: totalPot,
+      notes: notes || null,
+    })
+    .eq('id', gameId);
+
+  if (gameError) {
+    console.error('Error updating game:', gameError);
+    return null;
+  }
+
+  // 2. Eliminar los game_players existentes
+  const { error: deleteError } = await db
+    .from('game_players')
+    .delete()
+    .eq('game_id', gameId);
+
+  if (deleteError) {
+    console.error('Error deleting old game_players:', deleteError);
+    return null;
+  }
+
+  // 3. Crear los nuevos game_players
+  const gamePlayers = players.map(p => {
+    const totalChipsBought = buyIn * (1 + p.rebuys);
+    const profit = (p.final_chips - totalChipsBought) * chipValue;
+    
+    return {
+      game_id: gameId,
+      player_id: p.player_id,
+      initial_chips: buyIn,
+      final_chips: p.final_chips,
+      rebuys: p.rebuys,
+      profit: profit,
+    };
+  });
+
+  const { error: playersError } = await db
+    .from('game_players')
+    .insert(gamePlayers);
+
+  if (playersError) {
+    console.error('Error creating new game_players:', playersError);
+    return null;
+  }
+
+  // 4. Obtener la partida actualizada
+  return getGameById(gameId);
+}
+
 // Eliminar una partida
 export async function deleteGame(id: string): Promise<boolean> {
   const db = checkSupabase();

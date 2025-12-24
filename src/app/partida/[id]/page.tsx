@@ -21,6 +21,10 @@ import {
   Trash2,
   Share2,
   RefreshCw,
+  Edit,
+  MessageCircle,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 export default function PartidaPage() {
@@ -30,6 +34,8 @@ export default function PartidaPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     loadGame();
@@ -55,9 +61,25 @@ export default function PartidaPage() {
     }
   }
 
-  async function handleShare() {
+  function handleShareWhatsApp() {
     if (!game) return;
-    
+    const text = generateShareText(game);
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+    setShowShareMenu(false);
+  }
+
+  function handleCopyToClipboard() {
+    if (!game) return;
+    const text = generateShareText(game);
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    setShowShareMenu(false);
+  }
+
+  async function handleNativeShare() {
+    if (!game) return;
     const text = generateShareText(game);
     
     if (navigator.share) {
@@ -67,16 +89,10 @@ export default function PartidaPage() {
           text: text,
         });
       } catch {
-        copyToClipboard(text);
+        // Usuario canceló
       }
-    } else {
-      copyToClipboard(text);
     }
-  }
-
-  function copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text);
-    alert('Copiado al portapapeles');
+    setShowShareMenu(false);
   }
 
   function generateShareText(game: Game): string {
@@ -185,13 +201,71 @@ export default function PartidaPage() {
               </div>
               
               <div className="flex items-center gap-2">
-                <button
-                  onClick={handleShare}
+                {/* Botón Editar */}
+                <Link
+                  href={`/editar-partida/${game.id}`}
                   className="p-2 rounded-lg bg-background border border-border hover:border-primary transition-colors"
-                  title="Compartir"
+                  title="Editar partida"
                 >
-                  <Share2 className="w-5 h-5 text-foreground-muted" />
-                </button>
+                  <Edit className="w-5 h-5 text-foreground-muted hover:text-primary" />
+                </Link>
+
+                {/* Botón Compartir con menú */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowShareMenu(!showShareMenu)}
+                    className="p-2 rounded-lg bg-background border border-border hover:border-primary transition-colors"
+                    title="Compartir"
+                  >
+                    <Share2 className="w-5 h-5 text-foreground-muted" />
+                  </button>
+
+                  {/* Menú de compartir */}
+                  {showShareMenu && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-40" 
+                        onClick={() => setShowShareMenu(false)}
+                      />
+                      <div className="absolute right-0 top-full mt-2 bg-background-card border border-border rounded-xl shadow-lg z-50 w-48 overflow-hidden animate-fade-in">
+                        <button
+                          onClick={handleShareWhatsApp}
+                          className="w-full px-4 py-3 text-left hover:bg-background flex items-center gap-3 transition-colors text-foreground"
+                        >
+                          <MessageCircle className="w-5 h-5 text-green-500" />
+                          <span>WhatsApp</span>
+                        </button>
+                        <button
+                          onClick={handleCopyToClipboard}
+                          className="w-full px-4 py-3 text-left hover:bg-background flex items-center gap-3 transition-colors text-foreground border-t border-border"
+                        >
+                          {copied ? (
+                            <>
+                              <Check className="w-5 h-5 text-success" />
+                              <span className="text-success">¡Copiado!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-5 h-5 text-foreground-muted" />
+                              <span>Copiar texto</span>
+                            </>
+                          )}
+                        </button>
+                        {typeof navigator !== 'undefined' && navigator.share && (
+                          <button
+                            onClick={handleNativeShare}
+                            className="w-full px-4 py-3 text-left hover:bg-background flex items-center gap-3 transition-colors text-foreground border-t border-border"
+                          >
+                            <Share2 className="w-5 h-5 text-foreground-muted" />
+                            <span>Más opciones...</span>
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Botón Eliminar */}
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
                   className="p-2 rounded-lg bg-background border border-border hover:border-danger transition-colors"
