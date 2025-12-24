@@ -253,64 +253,79 @@ export default function JugadoresPage() {
       <main className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         <div className="animate-fade-in">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 flex items-center gap-2">
-                <Medal className="w-8 h-8 text-accent" />
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-1">
+              <Medal className="w-8 h-8 text-accent" />
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
                 Ranking de Jugadores
               </h1>
-              <p className="text-foreground-muted">
-                {players.length} jugadores registrados
-              </p>
             </div>
-            <div className="flex items-center gap-2">
-              {/* Who's Gay Button */}
-              {players.length > 0 && (
+            <p className="text-foreground-muted">
+              {players.length} jugadores registrados
+            </p>
+          </div>
+
+          {/* Barra de acciones */}
+          {players.length > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 p-4 bg-background-card rounded-xl border border-border">
+              {/* Botones de ordenación */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-foreground-muted flex items-center gap-1">
+                  <ArrowUpDown className="w-4 h-4" />
+                  Ordenar:
+                </span>
+                <button
+                  onClick={() => setSortBy('balance')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    sortBy === 'balance'
+                      ? 'bg-primary text-white'
+                      : 'bg-background border border-border text-foreground-muted hover:text-foreground'
+                  }`}
+                >
+                  💰 Balance
+                </button>
+                <button
+                  onClick={() => setSortBy('winrate')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    sortBy === 'winrate'
+                      ? 'bg-primary text-white'
+                      : 'bg-background border border-border text-foreground-muted hover:text-foreground'
+                  }`}
+                >
+                  🏆 % Victorias
+                </button>
+              </div>
+
+              {/* Botones de acción */}
+              <div className="flex items-center gap-2">
                 <button
                   onClick={handleWhosGay}
-                  className="px-4 py-2 rounded-xl flex items-center gap-2 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white font-medium hover:opacity-90 transition-opacity"
+                  className="px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white font-medium hover:opacity-90 transition-opacity"
                 >
-                  <Rainbow className="w-5 h-5" />
-                  <span className="hidden sm:inline">Who's Gay?</span>
+                  <Rainbow className="w-4 h-4" />
+                  <span>Who's Gay?</span>
                 </button>
-              )}
-              
+                
+                <button
+                  onClick={() => setShowNewPlayer(true)}
+                  className="btn-primary px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Nuevo</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Botón nuevo jugador cuando no hay jugadores */}
+          {players.length === 0 && (
+            <div className="mb-6">
               <button
                 onClick={() => setShowNewPlayer(true)}
                 className="btn-primary px-4 py-2 rounded-xl flex items-center gap-2"
               >
                 <Plus className="w-5 h-5" />
-                <span className="hidden sm:inline">Nuevo Jugador</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Botones de ordenación */}
-          {players.length > 0 && (
-            <div className="flex items-center gap-2 mb-6">
-              <span className="text-sm text-foreground-muted flex items-center gap-1">
-                <ArrowUpDown className="w-4 h-4" />
-                Ordenar por:
-              </span>
-              <button
-                onClick={() => setSortBy('balance')}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  sortBy === 'balance'
-                    ? 'bg-primary text-white'
-                    : 'bg-background border border-border text-foreground-muted hover:text-foreground'
-                }`}
-              >
-                💰 Balance
-              </button>
-              <button
-                onClick={() => setSortBy('winrate')}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  sortBy === 'winrate'
-                    ? 'bg-primary text-white'
-                    : 'bg-background border border-border text-foreground-muted hover:text-foreground'
-                }`}
-              >
-                🏆 % Victorias
+                <span>Nuevo Jugador</span>
               </button>
             </div>
           )}
