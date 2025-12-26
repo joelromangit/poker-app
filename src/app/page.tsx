@@ -7,13 +7,15 @@ import GameCard from '@/components/GameCard';
 import EmptyState from '@/components/EmptyState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { getGamesSummary } from '@/lib/games';
+import { getHomeStats, HomeStats } from '@/lib/players';
 import { GameSummary } from '@/types';
-import { TrendingUp, Euro, Spade, FileWarning, ArrowRight, X, Search } from 'lucide-react';
+import { Trophy, RefreshCw, Spade, FileWarning, ArrowRight, X, Search } from 'lucide-react';
 import { getDraft, clearDraft } from './nueva-partida/page';
 import { InstallBanner } from '@/components/InstallPrompt';
 
 export default function Home() {
   const [games, setGames] = useState<GameSummary[]>([]);
+  const [homeStats, setHomeStats] = useState<HomeStats>({ leader: null, rebuyKing: null });
   const [loading, setLoading] = useState(true);
   const [draftInfo, setDraftInfo] = useState<{ playerCount: number; savedAt: string } | null>(null);
   const [showDraftBanner, setShowDraftBanner] = useState(false);
@@ -26,8 +28,12 @@ export default function Home() {
 
   async function loadGames() {
     setLoading(true);
-    const data = await getGamesSummary();
-    setGames(data);
+    const [gamesData, statsData] = await Promise.all([
+      getGamesSummary(),
+      getHomeStats()
+    ]);
+    setGames(gamesData);
+    setHomeStats(statsData);
     setLoading(false);
   }
 
@@ -81,8 +87,6 @@ export default function Home() {
 
   // Calcular estadísticas
   const totalGames = games.length;
-  const totalPot = games.reduce((sum, g) => sum + g.total_pot, 0);
-  const totalPlayers = games.reduce((sum, g) => sum + g.player_count, 0);
 
   return (
     <>
@@ -133,6 +137,7 @@ export default function Home() {
           <section className="poker-table-bg py-8 sm:py-12">
             <div className="relative max-w-5xl mx-auto px-4 sm:px-6">
               <div className="grid grid-cols-3 gap-4 sm:gap-6">
+                {/* Partidas */}
                 <div className="bg-background-card/80 backdrop-blur rounded-xl p-4 sm:p-6 text-center border border-border animate-fade-in">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-2 sm:mb-3">
                     <Spade className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
@@ -141,20 +146,80 @@ export default function Home() {
                   <p className="text-xs sm:text-sm text-foreground-muted">Partidas</p>
                 </div>
                 
+                {/* Líder actual */}
                 <div className="bg-background-card/80 backdrop-blur rounded-xl p-4 sm:p-6 text-center border border-border animate-fade-in" style={{ animationDelay: '0.1s' }}>
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-accent/20 flex items-center justify-center mx-auto mb-2 sm:mb-3">
-                    <Euro className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
-                  </div>
-                  <p className="text-xl sm:text-3xl font-bold text-foreground">{totalPot.toFixed(0)}€</p>
-                  <p className="text-xs sm:text-sm text-foreground-muted">Total jugado</p>
+                  {homeStats.leader ? (
+                    <>
+                      <div className="relative w-12 h-12 sm:w-14 sm:h-14 mx-auto mb-2 sm:mb-3">
+                        {homeStats.leader.player.avatar_url ? (
+                          <img
+                            src={homeStats.leader.player.avatar_url}
+                            alt={homeStats.leader.player.name}
+                            className="w-full h-full rounded-full object-cover border-2 border-accent"
+                          />
+                        ) : (
+                          <div
+                            className="w-full h-full rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-xl border-2 border-accent"
+                            style={{ backgroundColor: homeStats.leader.player.avatar_color }}
+                          >
+                            {homeStats.leader.player.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="absolute -top-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-accent rounded-full flex items-center justify-center">
+                          <Trophy className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                        </div>
+                      </div>
+                      <p className="text-sm sm:text-base font-bold text-foreground truncate">{homeStats.leader.player.name}</p>
+                      <p className={`text-xs sm:text-sm font-medium ${homeStats.leader.balance >= 0 ? 'text-success' : 'text-danger'}`}>
+                        {homeStats.leader.balance >= 0 ? '+' : ''}{homeStats.leader.balance.toFixed(2)}€
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-accent/20 flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                        <Trophy className="w-6 h-6 sm:w-7 sm:h-7 text-accent" />
+                      </div>
+                      <p className="text-sm text-foreground-muted">-</p>
+                    </>
+                  )}
+                  <p className="text-xs text-foreground-muted mt-1">Líder actual</p>
                 </div>
                 
+                {/* Rey del rebuy */}
                 <div className="bg-background-card/80 backdrop-blur rounded-xl p-4 sm:p-6 text-center border border-border animate-fade-in" style={{ animationDelay: '0.2s' }}>
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-2 sm:mb-3">
-                    <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-success" />
-                  </div>
-                  <p className="text-xl sm:text-3xl font-bold text-foreground">{totalPlayers}</p>
-                  <p className="text-xs sm:text-sm text-foreground-muted">Participaciones</p>
+                  {homeStats.rebuyKing ? (
+                    <>
+                      <div className="relative w-12 h-12 sm:w-14 sm:h-14 mx-auto mb-2 sm:mb-3">
+                        {homeStats.rebuyKing.player.avatar_url ? (
+                          <img
+                            src={homeStats.rebuyKing.player.avatar_url}
+                            alt={homeStats.rebuyKing.player.name}
+                            className="w-full h-full rounded-full object-cover border-2 border-warning"
+                          />
+                        ) : (
+                          <div
+                            className="w-full h-full rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-xl border-2 border-warning"
+                            style={{ backgroundColor: homeStats.rebuyKing.player.avatar_color }}
+                          >
+                            {homeStats.rebuyKing.player.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="absolute -top-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-warning rounded-full flex items-center justify-center text-xs">
+                          👑
+                        </div>
+                      </div>
+                      <p className="text-sm sm:text-base font-bold text-foreground truncate">{homeStats.rebuyKing.player.name}</p>
+                      <p className="text-xs sm:text-sm text-warning font-medium">{homeStats.rebuyKing.totalRebuys} rebuys</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-warning/20 flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                        <RefreshCw className="w-6 h-6 sm:w-7 sm:h-7 text-warning" />
+                      </div>
+                      <p className="text-sm text-foreground-muted">-</p>
+                    </>
+                  )}
+                  <p className="text-xs text-foreground-muted mt-1">Rey del Rebuy</p>
                 </div>
               </div>
             </div>
@@ -223,7 +288,7 @@ export default function Home() {
       <footer className="border-t border-border py-6">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center">
           <p className="text-sm text-foreground-muted">
-            🃏 Poker Nights — Hecho con ♥ para las noches de poker
+            Crispy maricón
           </p>
         </div>
       </footer>

@@ -169,6 +169,86 @@ export async function getAllPlayersStats(): Promise<PlayerStats[]> {
   return stats.filter((s): s is PlayerStats => s !== null);
 }
 
+// Obtener estadísticas para la página principal
+export interface PlayerSummary {
+  name: string;
+  avatar_url?: string;
+  avatar_color: string;
+}
+
+export interface HomeStats {
+  leader: { player: PlayerSummary; balance: number } | null;
+  rebuyKing: { player: PlayerSummary; totalRebuys: number } | null;
+}
+
+export async function getHomeStats(): Promise<HomeStats> {
+  const db = checkSupabase();
+
+  // Obtener todos los game_players con info de jugadores
+  const { data, error } = await db
+    .from('game_players')
+    .select(`
+      profit,
+      rebuys,
+      players (id, name, avatar_url, avatar_color)
+    `);
+
+  if (error || !data) {
+    console.error('Error fetching home stats:', error);
+    return { leader: null, rebuyKing: null };
+  }
+
+  // Calcular balance total por jugador
+  const playerBalances = new Map<string, { player: PlayerSummary; balance: number }>();
+  const playerRebuys = new Map<string, { player: PlayerSummary; totalRebuys: number }>();
+
+  data.forEach((gp: any) => {
+    const playerId = gp.players?.id;
+    const playerData = gp.players;
+    if (!playerId || !playerData) return;
+
+    const playerSummary: PlayerSummary = {
+      name: playerData.name,
+      avatar_url: playerData.avatar_url || undefined,
+      avatar_color: playerData.avatar_color || '#10B981',
+    };
+
+    // Balance
+    const current = playerBalances.get(playerId);
+    if (current) {
+      current.balance += gp.profit;
+    } else {
+      playerBalances.set(playerId, { player: playerSummary, balance: gp.profit });
+    }
+
+    // Rebuys
+    const currentRebuys = playerRebuys.get(playerId);
+    if (currentRebuys) {
+      currentRebuys.totalRebuys += gp.rebuys || 0;
+    } else {
+      playerRebuys.set(playerId, { player: playerSummary, totalRebuys: gp.rebuys || 0 });
+    }
+  });
+
+  // Encontrar líder (mayor balance)
+  let leader: { player: PlayerSummary; balance: number } | null = null;
+  playerBalances.forEach((value) => {
+    if (!leader || value.balance > leader.balance) {
+      leader = value;
+    }
+  });
+
+  // Encontrar rey del rebuy (más rebuys)
+  let rebuyKing: { player: PlayerSummary; totalRebuys: number } | null = null;
+  playerRebuys.forEach((value) => {
+    if (value.totalRebuys > 0 && (!rebuyKing || value.totalRebuys > rebuyKing.totalRebuys)) {
+      rebuyKing = value;
+    }
+  });
+
+  return { leader, rebuyKing };
+}
+
 // Colores aleatorios para avatares
 const AVATAR_COLORS = [
   '#10B981', // Verde esmeralda
