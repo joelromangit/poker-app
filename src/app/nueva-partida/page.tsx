@@ -36,6 +36,7 @@ const DRAFT_KEY = 'poker-draft-game';
 
 // Interfaz para el borrador
 interface GameDraft {
+  gameName: string;
   chipValue: string;
   buyIn: string;
   players: Array<{
@@ -89,6 +90,7 @@ export default function NuevaPartidaPage() {
   const [loadingPlayers, setLoadingPlayers] = useState(true);
   const [draftLoaded, setDraftLoaded] = useState(false);
   
+  const [gameName, setGameName] = useState('');
   const [chipValue, setChipValue] = useState('0.01');
   const [buyIn, setBuyIn] = useState('1000');
   const [selectedPlayers, setSelectedPlayers] = useState<GameFormPlayer[]>([]);
@@ -130,6 +132,7 @@ export default function NuevaPartidaPage() {
     if (draft && draft.players.length > 0) {
       setShowDraftBanner(true);
       // Restaurar valores
+      setGameName(draft.gameName || '');
       setChipValue(draft.chipValue);
       setBuyIn(draft.buyIn);
       setNotes(draft.notes);
@@ -168,6 +171,7 @@ export default function NuevaPartidaPage() {
     
     if (hasData) {
       saveDraft({
+        gameName,
         chipValue,
         buyIn,
         players: selectedPlayers.map(p => ({
@@ -183,11 +187,12 @@ export default function NuevaPartidaPage() {
       // Si no hay datos, limpiar el borrador
       clearDraft();
     }
-  }, [chipValue, buyIn, selectedPlayers, notes, gameDate, gameTime, draftLoaded]);
+  }, [gameName, chipValue, buyIn, selectedPlayers, notes, gameDate, gameTime, draftLoaded]);
 
   // Descartar borrador
   const handleDiscardDraft = () => {
     clearDraft();
+    setGameName('');
     setChipValue('0.01');
     setBuyIn('1000');
     setSelectedPlayers([]);
@@ -353,7 +358,8 @@ export default function NuevaPartidaPage() {
         parseFloat(buyIn) || 0,
         playersData,
         notes.trim() || undefined,
-        gameDatetime
+        gameDatetime,
+        gameName.trim() || undefined
       );
 
       if (game) {
@@ -404,12 +410,26 @@ export default function NuevaPartidaPage() {
             </div>
           )}
 
-          {/* Fecha y hora de la partida */}
+          {/* Nombre y fecha de la partida */}
           <section className="bg-background-card rounded-2xl p-5 sm:p-6 border border-border mb-6">
             <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
               <Calendar className="w-5 h-5 text-primary" />
-              Fecha y Hora
+              Información de la Partida
             </h2>
+
+            {/* Nombre de la partida */}
+            <div className="mb-4">
+              <label className="block text-sm text-foreground-muted mb-2">
+                Nombre de la partida (opcional)
+              </label>
+              <input
+                type="text"
+                value={gameName}
+                onChange={(e) => setGameName(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                placeholder="Ej: Andorra 2022, Nochevieja..."
+              />
+            </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>

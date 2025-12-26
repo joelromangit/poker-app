@@ -42,6 +42,7 @@ export async function getGamesSummary(): Promise<GameSummary[]> {
     .select(`
       id,
       created_at,
+      name,
       total_pot,
       game_players (
         profit,
@@ -57,17 +58,27 @@ export async function getGamesSummary(): Promise<GameSummary[]> {
 
   return (data || []).map(game => {
     const gamePlayers = game.game_players || [];
+    
+    // Mejor resultado (mayor profit)
     const topWinner = gamePlayers.reduce((prev: any, curr: any) => 
       (curr.profit > (prev?.profit || -Infinity)) ? curr : prev
+    , null);
+
+    // Peor resultado (menor profit)
+    const worstLoser = gamePlayers.reduce((prev: any, curr: any) => 
+      (curr.profit < (prev?.profit || Infinity)) ? curr : prev
     , null);
 
     return {
       id: game.id,
       created_at: game.created_at,
+      name: game.name || undefined,
       player_count: gamePlayers.length,
       total_pot: game.total_pot,
       top_winner: topWinner?.players?.name || '-',
       top_winner_profit: topWinner?.profit || 0,
+      worst_loser: worstLoser?.players?.name || '-',
+      worst_loser_profit: worstLoser?.profit || 0,
     };
   });
 }
@@ -102,7 +113,8 @@ export async function createGame(
   buyIn: number,
   players: { player_id: string; final_chips: number; rebuys: number }[],
   notes?: string,
-  gameDate?: Date
+  gameDate?: Date,
+  name?: string
 ): Promise<Game | null> {
   const db = checkSupabase();
 
@@ -117,6 +129,7 @@ export async function createGame(
   const { data: gameData, error: gameError } = await db
     .from('games')
     .insert({
+      name: name || null,
       chip_value: chipValue,
       buy_in: buyIn,
       total_pot: totalPot,
@@ -171,7 +184,8 @@ export async function updateGame(
   buyIn: number,
   players: { player_id: string; final_chips: number; rebuys: number }[],
   notes?: string,
-  gameDate?: Date
+  gameDate?: Date,
+  name?: string
 ): Promise<Game | null> {
   const db = checkSupabase();
 
@@ -183,6 +197,7 @@ export async function updateGame(
 
   // 1. Actualizar la partida
   const updateData: any = {
+    name: name || null,
     chip_value: chipValue,
     buy_in: buyIn,
     total_pot: totalPot,
@@ -283,6 +298,7 @@ function mapDbGameToGame(dbGame: any): Game {
   return {
     id: dbGame.id,
     created_at: dbGame.created_at,
+    name: dbGame.name || undefined,
     chip_value: dbGame.chip_value,
     buy_in: dbGame.buy_in,
     players: gamePlayers,

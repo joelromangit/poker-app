@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { uploadLoserPhoto, compressImage, deleteLoserPhoto } from '@/lib/storage';
 import { updateGameLoserPhoto } from '@/lib/games';
+import ImageCropper from '@/components/ImageCropper';
 
 export default function PartidaPage() {
   const params = useParams();
@@ -48,6 +49,10 @@ export default function PartidaPage() {
   const [uploadingLoserPhoto, setUploadingLoserPhoto] = useState(false);
   const [showLoserSection, setShowLoserSection] = useState(false);
   const [showPaymentsSection, setShowPaymentsSection] = useState(false);
+  
+  // Cropper state para foto del perdedor
+  const [loserCropperImage, setLoserCropperImage] = useState<string | null>(null);
+  const [showLoserCropper, setShowLoserCropper] = useState(false);
 
   useEffect(() => {
     loadGame();
@@ -107,24 +112,46 @@ export default function PartidaPage() {
     setShowShareMenu(false);
   }
 
-  // Manejar subida de foto del perdedor
-  async function handleLoserPhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  // Manejar selección de foto del perdedor (abre cropper)
+  function handleLoserPhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !game) return;
+    if (!file) return;
 
+    const reader = new FileReader();
+    reader.onload = () => {
+      setLoserCropperImage(reader.result as string);
+      setShowLoserCropper(true);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  }
+
+  // Manejar foto del perdedor recortada
+  async function handleLoserCroppedImage(croppedFile: File) {
+    if (!game) return;
+    
+    setShowLoserCropper(false);
+    setLoserCropperImage(null);
     setUploadingLoserPhoto(true);
+    
     try {
-      const compressedFile = await compressImage(file, 600);
+      const compressedFile = await compressImage(croppedFile, 600);
       const url = await uploadLoserPhoto(game.id, compressedFile);
       
       if (url) {
         await updateGameLoserPhoto(game.id, url);
-        await loadGame(); // Recargar para ver la foto
+        await loadGame();
       }
     } catch (err) {
       console.error('Error uploading loser photo:', err);
     }
     setUploadingLoserPhoto(false);
+  }
+
+  // Cancelar cropper del perdedor
+  function handleCancelLoserCrop() {
+    setShowLoserCropper(false);
+    setLoserCropperImage(null);
   }
 
   // Eliminar foto del perdedor
@@ -566,7 +593,8 @@ export default function PartidaPage() {
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={handleLoserPhotoUpload}
+                          capture="environment"
+                          onChange={handleLoserPhotoSelect}
                           className="hidden"
                           disabled={uploadingLoserPhoto}
                         />
@@ -672,6 +700,17 @@ export default function PartidaPage() {
           </div>
         </div>
       </main>
+
+      {/* Image Cropper Modal para foto del perdedor */}
+      {showLoserCropper && loserCropperImage && (
+        <ImageCropper
+          image={loserCropperImage}
+          onCropComplete={handleLoserCroppedImage}
+          onCancel={handleCancelLoserCrop}
+          aspectRatio={4 / 3}
+          cropShape="rect"
+        />
+      )}
 
       {/* Modal de confirmación de eliminación */}
       {showDeleteConfirm && (

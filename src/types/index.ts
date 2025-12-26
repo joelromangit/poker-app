@@ -24,6 +24,7 @@ export interface GamePlayer {
 export interface Game {
   id: string;
   created_at: string;
+  name?: string; // Nombre/título de la partida (ej: "Andorra 2022")
   chip_value: number;
   buy_in: number;
   players: GamePlayer[];
@@ -37,10 +38,13 @@ export interface Game {
 export interface GameSummary {
   id: string;
   created_at: string;
+  name?: string; // Nombre/título de la partida
   player_count: number;
   total_pot: number;
   top_winner: string;
   top_winner_profit: number;
+  worst_loser: string;
+  worst_loser_profit: number;
 }
 
 // Estadísticas de un jugador

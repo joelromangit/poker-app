@@ -22,6 +22,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { uploadPlayerAvatar, compressImage, deletePlayerAvatar } from '@/lib/storage';
+import ImageCropper from '@/components/ImageCropper';
 
 const AVATAR_COLORS = [
   '#10B981', // Verde esmeralda
@@ -52,6 +53,10 @@ export default function JugadoresPage() {
   const [editAvatarUrl, setEditAvatarUrl] = useState<string | undefined>(undefined);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
+  
+  // Cropper state
+  const [cropperImage, setCropperImage] = useState<string | null>(null);
+  const [showCropper, setShowCropper] = useState(false);
   
   const [error, setError] = useState('');
   
@@ -121,15 +126,34 @@ export default function JugadoresPage() {
     setError('');
   };
 
-  // Manejar subida de avatar
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Manejar selección de imagen (abre el cropper)
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !editingPlayer) return;
+    if (!file) return;
 
+    // Convertir a URL para el cropper
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropperImage(reader.result as string);
+      setShowCropper(true);
+    };
+    reader.readAsDataURL(file);
+    
+    // Resetear el input para permitir seleccionar la misma imagen de nuevo
+    e.target.value = '';
+  };
+
+  // Manejar imagen recortada
+  const handleCroppedImage = async (croppedFile: File) => {
+    if (!editingPlayer) return;
+    
+    setShowCropper(false);
+    setCropperImage(null);
     setUploadingAvatar(true);
+    
     try {
-      // Comprimir imagen
-      const compressedFile = await compressImage(file, 300);
+      // Comprimir imagen recortada
+      const compressedFile = await compressImage(croppedFile, 300);
       
       // Subir a Supabase Storage
       const url = await uploadPlayerAvatar(editingPlayer.id, compressedFile);
@@ -143,6 +167,12 @@ export default function JugadoresPage() {
       setError('Error al subir la imagen');
     }
     setUploadingAvatar(false);
+  };
+
+  // Cancelar cropper
+  const handleCancelCrop = () => {
+    setShowCropper(false);
+    setCropperImage(null);
   };
 
   // Eliminar avatar
@@ -449,7 +479,8 @@ export default function JugadoresPage() {
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={handleAvatarUpload}
+                        capture="environment"
+                        onChange={handleImageSelect}
                         className="hidden"
                         disabled={uploadingAvatar}
                       />
@@ -677,6 +708,17 @@ export default function JugadoresPage() {
           )}
         </div>
       </main>
+
+      {/* Image Cropper Modal */}
+      {showCropper && cropperImage && (
+        <ImageCropper
+          image={cropperImage}
+          onCropComplete={handleCroppedImage}
+          onCancel={handleCancelCrop}
+          aspectRatio={1}
+          cropShape="round"
+        />
+      )}
 
       {/* Who's Gay Modal */}
       {showGayModal && (

@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS players (
 CREATE TABLE IF NOT EXISTS games (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  name TEXT,  -- Nombre/título de la partida (ej: "Andorra 2022")
   chip_value DECIMAL(10,4) NOT NULL,
   buy_in INTEGER NOT NULL,
   total_pot DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -129,6 +130,21 @@ END $$;
 
 ALTER TABLE game_players 
 ALTER COLUMN rebuys TYPE DECIMAL(10,2) USING rebuys::DECIMAL(10,2);
+
+-- =============================================
+-- MIGRACIÓN: Añadir nombre a las partidas
+-- =============================================
+-- Ejecuta esto si ya tienes la tabla games creada
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'games' AND column_name = 'name'
+  ) THEN
+    ALTER TABLE games ADD COLUMN name TEXT;
+  END IF;
+END $$;
 
 -- =============================================
 -- NOTAS SOBRE REBUYS

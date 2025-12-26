@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Calendar, Users, Trophy, TrendingUp, TrendingDown, Euro } from 'lucide-react';
+import { Calendar, Users, Trophy, TrendingUp, TrendingDown, Frown } from 'lucide-react';
 import { GameSummary } from '@/types';
 
 interface GameCardProps {
@@ -22,9 +22,10 @@ export default function GameCard({ game, index }: GameCardProps) {
   });
 
   // Proteger contra valores null/undefined
-  const totalPot = game.total_pot ?? 0;
   const topWinnerProfit = game.top_winner_profit ?? 0;
+  const worstLoserProfit = game.worst_loser_profit ?? 0;
   const isWinner = topWinnerProfit > 0;
+  const isLoser = worstLoserProfit < 0;
 
   return (
     <Link href={`/partida/${game.id}`}>
@@ -33,49 +34,60 @@ export default function GameCard({ game, index }: GameCardProps) {
         style={{ animationDelay: `${index * 0.05}s` }}
       >
         {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-2 text-foreground-muted text-sm">
-            <Calendar className="w-4 h-4" />
-            <span>{formattedDate}</span>
-            <span className="text-foreground-muted/50">•</span>
-            <span>{formattedTime}</span>
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1 min-w-0">
+            {game.name && (
+              <h3 className="font-semibold text-foreground truncate mb-1">
+                {game.name}
+              </h3>
+            )}
+            <div className="flex items-center gap-2 text-foreground-muted text-sm">
+              <Calendar className="w-4 h-4 flex-shrink-0" />
+              <span>{formattedDate}</span>
+              <span className="text-foreground-muted/50">•</span>
+              <span>{formattedTime}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 bg-background-secondary px-2.5 py-1 rounded-full">
+          <div className="flex items-center gap-1.5 bg-background-secondary px-2.5 py-1 rounded-full ml-2 flex-shrink-0">
             <Users className="w-3.5 h-3.5 text-primary" />
             <span className="text-sm font-medium">{game.player_count}</span>
           </div>
         </div>
 
-        {/* Pot total */}
-        <div className="mb-4">
-          <p className="text-foreground-muted text-xs uppercase tracking-wider mb-1">Bote total</p>
+        {/* Mejor resultado */}
+        <div className="flex items-center justify-between py-3 border-t border-border">
           <div className="flex items-center gap-2">
-            <Euro className="w-5 h-5 text-accent" />
-            <span className="text-2xl font-bold text-foreground">
-              {totalPot.toFixed(2)}
-            </span>
-          </div>
-        </div>
-
-        {/* Ganador */}
-        <div className="flex items-center justify-between pt-4 border-t border-border">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
-              <Trophy className="w-4 h-4 text-accent" />
+            <div className="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center">
+              <Trophy className="w-4 h-4 text-success" />
             </div>
             <div>
               <p className="text-xs text-foreground-muted">Mejor resultado</p>
               <p className="font-medium text-foreground">{game.top_winner || '-'}</p>
             </div>
           </div>
-          <div className={`flex items-center gap-1 ${isWinner ? 'text-success' : 'text-danger'}`}>
-            {isWinner ? (
-              <TrendingUp className="w-4 h-4" />
-            ) : (
-              <TrendingDown className="w-4 h-4" />
-            )}
+          <div className={`flex items-center gap-1 ${isWinner ? 'text-success' : 'text-foreground-muted'}`}>
+            {isWinner && <TrendingUp className="w-4 h-4" />}
             <span className="font-bold">
               {isWinner ? '+' : ''}{topWinnerProfit.toFixed(2)}€
+            </span>
+          </div>
+        </div>
+
+        {/* Peor resultado */}
+        <div className="flex items-center justify-between pt-3 border-t border-border">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-danger/20 flex items-center justify-center">
+              <Frown className="w-4 h-4 text-danger" />
+            </div>
+            <div>
+              <p className="text-xs text-foreground-muted">Peor resultado</p>
+              <p className="font-medium text-foreground">{game.worst_loser || '-'}</p>
+            </div>
+          </div>
+          <div className={`flex items-center gap-1 ${isLoser ? 'text-danger' : 'text-foreground-muted'}`}>
+            {isLoser && <TrendingDown className="w-4 h-4" />}
+            <span className="font-bold">
+              {worstLoserProfit.toFixed(2)}€
             </span>
           </div>
         </div>
@@ -83,4 +95,3 @@ export default function GameCard({ game, index }: GameCardProps) {
     </Link>
   );
 }
-

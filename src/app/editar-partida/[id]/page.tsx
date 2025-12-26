@@ -41,6 +41,7 @@ export default function EditarPartidaPage() {
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
   const [loadingPlayers, setLoadingPlayers] = useState(true);
   
+  const [gameName, setGameName] = useState('');
   const [chipValue, setChipValue] = useState('0.01');
   const [buyIn, setBuyIn] = useState('1000');
   const [selectedPlayers, setSelectedPlayers] = useState<GameFormPlayer[]>([]);
@@ -76,6 +77,7 @@ export default function EditarPartidaPage() {
     const gameData = await getGameById(gameId);
     if (gameData) {
       setGame(gameData);
+      setGameName(gameData.name || '');
       setChipValue(gameData.chip_value.toString());
       setBuyIn(gameData.buy_in.toString());
       setNotes(gameData.notes || '');
@@ -240,7 +242,8 @@ export default function EditarPartidaPage() {
         parseFloat(buyIn) || 0,
         playersData,
         notes.trim() || undefined,
-        gameDatetime
+        gameDatetime,
+        gameName.trim() || undefined
       );
 
       if (updatedGame) {
@@ -306,12 +309,26 @@ export default function EditarPartidaPage() {
             Modifica los valores de la partida
           </p>
 
-          {/* Fecha y hora de la partida */}
+          {/* Nombre y fecha de la partida */}
           <section className="bg-background-card rounded-2xl p-5 sm:p-6 border border-border mb-6">
             <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
               <Calendar className="w-5 h-5 text-primary" />
-              Fecha y Hora
+              Información de la Partida
             </h2>
+
+            {/* Nombre de la partida */}
+            <div className="mb-4">
+              <label className="block text-sm text-foreground-muted mb-2">
+                Nombre de la partida (opcional)
+              </label>
+              <input
+                type="text"
+                value={gameName}
+                onChange={(e) => setGameName(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                placeholder="Ej: Andorra 2022, Nochevieja..."
+              />
+            </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>

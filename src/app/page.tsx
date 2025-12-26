@@ -8,7 +8,7 @@ import EmptyState from '@/components/EmptyState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { getGamesSummary } from '@/lib/games';
 import { GameSummary } from '@/types';
-import { TrendingUp, Euro, Spade, FileWarning, ArrowRight, X } from 'lucide-react';
+import { TrendingUp, Euro, Spade, FileWarning, ArrowRight, X, Search } from 'lucide-react';
 import { getDraft, clearDraft } from './nueva-partida/page';
 import { InstallBanner } from '@/components/InstallPrompt';
 
@@ -17,6 +17,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [draftInfo, setDraftInfo] = useState<{ playerCount: number; savedAt: string } | null>(null);
   const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadGames();
@@ -61,6 +62,22 @@ export default function Home() {
     if (diffDays === 1) return 'Ayer';
     return `Hace ${diffDays} días`;
   }
+
+  // Filtrar partidas por búsqueda
+  const filteredGames = games.filter(game => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase().trim();
+    // Buscar en nombre de la partida
+    if (game.name?.toLowerCase().includes(query)) return true;
+    // Buscar en fecha
+    const date = new Date(game.created_at);
+    const dateStr = date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    if (dateStr.toLowerCase().includes(query)) return true;
+    // Buscar en ganador/perdedor
+    if (game.top_winner?.toLowerCase().includes(query)) return true;
+    if (game.worst_loser?.toLowerCase().includes(query)) return true;
+    return false;
+  });
 
   // Calcular estadísticas
   const totalGames = games.length;
@@ -152,17 +169,51 @@ export default function Home() {
             <EmptyState />
           ) : (
             <>
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <h2 className="text-xl sm:text-2xl font-bold text-foreground">
                   Historial de Partidas
                 </h2>
+                
+                {/* Buscador */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Buscar partida..."
+                    className="w-full sm:w-64 pl-10 pr-4 py-2 rounded-xl bg-background-card border border-border text-foreground placeholder:text-foreground-muted focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted hover:text-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {/* Resultados de búsqueda */}
+              {searchQuery && (
+                <p className="text-sm text-foreground-muted mb-4">
+                  {filteredGames.length} {filteredGames.length === 1 ? 'resultado' : 'resultados'} para "{searchQuery}"
+                </p>
+              )}
               
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {games.map((game, index) => (
-                  <GameCard key={game.id} game={game} index={index} />
-                ))}
-              </div>
+              {filteredGames.length === 0 ? (
+                <div className="text-center py-12">
+                  <Search className="w-12 h-12 text-foreground-muted/50 mx-auto mb-4" />
+                  <p className="text-foreground-muted">No se encontraron partidas con "{searchQuery}"</p>
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredGames.map((game, index) => (
+                    <GameCard key={game.id} game={game} index={index} />
+                  ))}
+                </div>
+              )}
             </>
           )}
         </section>
