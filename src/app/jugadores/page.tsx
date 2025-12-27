@@ -215,8 +215,19 @@ export default function JugadoresPage() {
 
   const getPlayerStats = (playerId: string) => stats.get(playerId);
 
-  // Ordenar jugadores según el criterio seleccionado
-  const sortedPlayers = [...players].sort((a, b) => {
+  // Separar jugadores con y sin partidas
+  const playersWithGames = players.filter(p => {
+    const playerStats = stats.get(p.id);
+    return playerStats && playerStats.total_games > 0;
+  });
+  
+  const playersWithoutGames = players.filter(p => {
+    const playerStats = stats.get(p.id);
+    return !playerStats || playerStats.total_games === 0;
+  });
+
+  // Ordenar jugadores con partidas según el criterio seleccionado
+  const sortedPlayersWithGames = [...playersWithGames].sort((a, b) => {
     const statsA = stats.get(a.id);
     const statsB = stats.get(b.id);
     
@@ -230,6 +241,11 @@ export default function JugadoresPage() {
       return winrateB - winrateA; // Mayor winrate primero
     }
   });
+  
+  // Ordenar jugadores sin partidas alfabéticamente
+  const sortedPlayersWithoutGames = [...playersWithoutGames].sort((a, b) => 
+    a.name.localeCompare(b.name)
+  );
 
   // Who's Gay? - Seleccionar jugador aleatorio con animación
   const handleWhosGay = () => {
@@ -581,130 +597,216 @@ export default function JugadoresPage() {
               </button>
             </div>
           ) : (
-            <div className="grid gap-3">
-              {sortedPlayers.map((player, index) => {
-                const playerStats = getPlayerStats(player.id);
-                const balance = playerStats?.total_balance || 0;
-                const isPositive = balance > 0;
-                const isNegative = balance < 0;
-                const position = index + 1;
+            <>
+              {/* Ranking de jugadores con partidas */}
+              <div className="grid gap-3">
+                {sortedPlayersWithGames.map((player, index) => {
+                  const playerStats = getPlayerStats(player.id);
+                  const balance = playerStats?.total_balance || 0;
+                  const isPositive = balance > 0;
+                  const isNegative = balance < 0;
+                  const position = index + 1;
 
-                return (
-                  <div
-                    key={player.id}
-                    className={`bg-background-card rounded-2xl p-4 sm:p-5 border transition-all animate-slide-in ${
-                      position === 1 ? 'border-accent/50 bg-gradient-to-r from-accent/10 to-transparent' :
-                      position === 2 ? 'border-foreground-muted/30' :
-                      position === 3 ? 'border-warning/30' :
-                      'border-border hover:border-primary/30'
-                    }`}
-                    style={{ animationDelay: `${index * 0.05}s` }}
-                  >
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      {/* Posición del ranking */}
-                      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-sm sm:text-lg flex-shrink-0 ${
-                        position === 1 ? 'bg-accent/20 text-accent' :
-                        position === 2 ? 'bg-foreground-muted/20 text-foreground-muted' :
-                        position === 3 ? 'bg-warning/20 text-warning' :
-                        'bg-background text-foreground-muted'
-                      }`}>
-                        {position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : position}
-                      </div>
-
-                      {/* Avatar con botón de editar */}
-                      <button
-                        onClick={() => openEditModal(player)}
-                        className="relative group"
-                        title="Editar jugador"
-                      >
-                        {player.avatar_url ? (
-                          <img
-                            src={player.avatar_url}
-                            alt={player.name}
-                            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover flex-shrink-0 transition-opacity group-hover:opacity-70"
-                          />
-                        ) : (
-                          <div
-                            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-white font-bold text-base sm:text-lg flex-shrink-0 transition-opacity group-hover:opacity-70"
-                            style={{ backgroundColor: player.avatar_color }}
-                          >
-                            {player.name.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <div className="absolute inset-0 rounded-full flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Pencil className="w-4 h-4 text-white" />
+                  return (
+                    <div
+                      key={player.id}
+                      className={`bg-background-card rounded-2xl p-4 sm:p-5 border transition-all animate-slide-in ${
+                        position === 1 ? 'border-accent/50 bg-gradient-to-r from-accent/10 to-transparent' :
+                        position === 2 ? 'border-foreground-muted/30' :
+                        position === 3 ? 'border-warning/30' :
+                        'border-border hover:border-primary/30'
+                      }`}
+                      style={{ animationDelay: `${index * 0.05}s` }}
+                    >
+                      <div className="flex items-center gap-3 sm:gap-4">
+                        {/* Posición del ranking */}
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-sm sm:text-lg flex-shrink-0 ${
+                          position === 1 ? 'bg-accent/20 text-accent' :
+                          position === 2 ? 'bg-foreground-muted/20 text-foreground-muted' :
+                          position === 3 ? 'bg-warning/20 text-warning' :
+                          'bg-background text-foreground-muted'
+                        }`}>
+                          {position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : position}
                         </div>
-                      </button>
 
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
-                          {player.name}
-                        </h3>
-                        <p className="text-xs sm:text-sm text-foreground-muted">
-                          {playerStats?.total_games || 0} partidas
-                        </p>
-                      </div>
+                        {/* Avatar con botón de editar */}
+                        <button
+                          onClick={() => openEditModal(player)}
+                          className="relative group"
+                          title="Editar jugador"
+                        >
+                          {player.avatar_url ? (
+                            <img
+                              src={player.avatar_url}
+                              alt={player.name}
+                              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover flex-shrink-0 transition-opacity group-hover:opacity-70"
+                            />
+                          ) : (
+                            <div
+                              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-white font-bold text-base sm:text-lg flex-shrink-0 transition-opacity group-hover:opacity-70"
+                              style={{ backgroundColor: player.avatar_color }}
+                            >
+                              {player.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="absolute inset-0 rounded-full flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Pencil className="w-4 h-4 text-white" />
+                          </div>
+                        </button>
 
-                      {/* Stats */}
-                      <div className="flex items-center gap-3 sm:gap-6">
-                        {/* Balance */}
-                        <div className="text-right">
-                          <p className="text-xs text-foreground-muted mb-0.5 hidden sm:block">Balance</p>
-                          <p className={`text-base sm:text-lg font-bold flex items-center justify-end gap-1 ${
-                            isPositive ? 'text-success' : isNegative ? 'text-danger' : 'text-foreground-muted'
-                          }`}>
-                            {isPositive && <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />}
-                            {isNegative && <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4" />}
-                            {isPositive ? '+' : ''}{balance.toFixed(2)}€
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
+                            {player.name}
+                          </h3>
+                          <p className="text-xs sm:text-sm text-foreground-muted">
+                            {playerStats?.total_games || 0} partidas
                           </p>
                         </div>
 
-                        {/* Win rate */}
-                        {playerStats && playerStats.total_games > 0 && (
-                          <div className="text-right hidden sm:block">
-                            <p className="text-xs text-foreground-muted mb-0.5">Victorias</p>
-                            <p className="text-lg font-bold text-foreground flex items-center justify-end gap-1">
-                              <Trophy className="w-4 h-4 text-accent" />
-                              {playerStats.win_rate.toFixed(0)}%
+                        {/* Stats */}
+                        <div className="flex items-center gap-3 sm:gap-6">
+                          {/* Balance */}
+                          <div className="text-right">
+                            <p className="text-xs text-foreground-muted mb-0.5 hidden sm:block">Balance</p>
+                            <p className={`text-base sm:text-lg font-bold flex items-center justify-end gap-1 ${
+                              isPositive ? 'text-success' : isNegative ? 'text-danger' : 'text-foreground-muted'
+                            }`}>
+                              {isPositive && <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />}
+                              {isNegative && <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4" />}
+                              {isPositive ? '+' : ''}{balance.toFixed(2)}€
                             </p>
                           </div>
-                        )}
 
-                        {/* Media */}
-                        <div className="text-right hidden sm:block">
-                          <p className="text-xs text-foreground-muted mb-0.5">Media</p>
-                          <p className={`text-lg font-bold ${
-                            (playerStats?.average_per_game || 0) >= 0 ? 'text-success' : 'text-danger'
-                          }`}>
-                            {(playerStats?.average_per_game || 0) >= 0 ? '+' : ''}
-                            {(playerStats?.average_per_game || 0).toFixed(2)}€
-                          </p>
+                          {/* Win rate */}
+                          {playerStats && playerStats.total_games > 0 && (
+                            <div className="text-right hidden sm:block">
+                              <p className="text-xs text-foreground-muted mb-0.5">Victorias</p>
+                              <p className="text-lg font-bold text-foreground flex items-center justify-end gap-1">
+                                <Trophy className="w-4 h-4 text-accent" />
+                                {playerStats.win_rate.toFixed(0)}%
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Media */}
+                          <div className="text-right hidden sm:block">
+                            <p className="text-xs text-foreground-muted mb-0.5">Media</p>
+                            <p className={`text-lg font-bold ${
+                              (playerStats?.average_per_game || 0) >= 0 ? 'text-success' : 'text-danger'
+                            }`}>
+                              {(playerStats?.average_per_game || 0) >= 0 ? '+' : ''}
+                              {(playerStats?.average_per_game || 0).toFixed(2)}€
+                            </p>
+                          </div>
+
+                          {/* Mejor - Desktop */}
+                          {playerStats && playerStats.total_games > 0 && (
+                            <div className="text-right hidden sm:block">
+                              <p className="text-xs text-foreground-muted mb-0.5">Mejor</p>
+                              <p className={`text-lg font-bold ${playerStats.best_game > 0 ? 'text-success' : 'text-danger'}`}>
+                                {playerStats.best_game > 0 ? '+' : ''}{playerStats.best_game.toFixed(2)}€
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Peor - Desktop */}
+                          {playerStats && playerStats.total_games > 0 && (
+                            <div className="text-right hidden sm:block">
+                              <p className="text-xs text-foreground-muted mb-0.5">Peor</p>
+                              <p className="text-lg font-bold text-danger">
+                                {playerStats.worst_game.toFixed(2)}€
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
+
+                      {/* Stats expandidas en móvil */}
+                      {playerStats && playerStats.total_games > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border grid grid-cols-3 gap-3 sm:hidden">
+                          <div className="text-center">
+                            <p className="text-xs text-foreground-muted">Victorias</p>
+                            <p className="font-bold text-foreground text-sm">{playerStats.win_rate.toFixed(0)}%</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-xs text-foreground-muted">Mejor</p>
+                            <p className={`font-bold text-sm ${playerStats.best_game > 0 ? 'text-success' : 'text-danger'}`}>
+                              {playerStats.best_game > 0 ? '+' : ''}{playerStats.best_game.toFixed(2)}€
+                            </p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-xs text-foreground-muted">Peor</p>
+                            <p className="font-bold text-danger text-sm">{playerStats.worst_game.toFixed(2)}€</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
+                  );
+                })}
+              </div>
 
-                    {/* Stats expandidas en móvil */}
-                    {playerStats && playerStats.total_games > 0 && (
-                      <div className="mt-3 pt-3 border-t border-border grid grid-cols-3 gap-3 sm:hidden">
-                        <div className="text-center">
-                          <p className="text-xs text-foreground-muted">Victorias</p>
-                          <p className="font-bold text-foreground text-sm">{playerStats.win_rate.toFixed(0)}%</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs text-foreground-muted">Mejor</p>
-                          <p className="font-bold text-success text-sm">+{playerStats.best_game.toFixed(2)}€</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs text-foreground-muted">Peor</p>
-                          <p className="font-bold text-danger text-sm">{playerStats.worst_game.toFixed(2)}€</p>
+              {/* Sección de jugadores sin partidas */}
+              {sortedPlayersWithoutGames.length > 0 && (
+                <div className="mt-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Users className="w-5 h-5 text-foreground-muted" />
+                    <h2 className="text-lg font-semibold text-foreground-muted">
+                      Jugadores sin partidas
+                    </h2>
+                    <span className="text-sm text-foreground-muted bg-background px-2 py-0.5 rounded-full">
+                      {sortedPlayersWithoutGames.length}
+                    </span>
+                  </div>
+                  <div className="grid gap-2">
+                    {sortedPlayersWithoutGames.map((player, index) => (
+                      <div
+                        key={player.id}
+                        className="bg-background-card rounded-xl p-3 sm:p-4 border border-border/50 transition-all hover:border-primary/30 animate-slide-in"
+                        style={{ animationDelay: `${(sortedPlayersWithGames.length + index) * 0.05}s` }}
+                      >
+                        <div className="flex items-center gap-3">
+                          {/* Avatar con botón de editar */}
+                          <button
+                            onClick={() => openEditModal(player)}
+                            className="relative group"
+                            title="Editar jugador"
+                          >
+                            {player.avatar_url ? (
+                              <img
+                                src={player.avatar_url}
+                                alt={player.name}
+                                className="w-10 h-10 rounded-full object-cover flex-shrink-0 transition-opacity group-hover:opacity-70"
+                              />
+                            ) : (
+                              <div
+                                className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-base flex-shrink-0 transition-opacity group-hover:opacity-70"
+                                style={{ backgroundColor: player.avatar_color }}
+                              >
+                                {player.name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div className="absolute inset-0 rounded-full flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Pencil className="w-4 h-4 text-white" />
+                            </div>
+                          </button>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-base font-semibold text-foreground truncate">
+                              {player.name}
+                            </h3>
+                            <p className="text-xs text-foreground-muted">
+                              Esperando su primera partida 🎲
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    )}
+                    ))}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>

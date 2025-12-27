@@ -49,6 +49,7 @@ export default function PartidaPage() {
   const [uploadingLoserPhoto, setUploadingLoserPhoto] = useState(false);
   const [showLoserSection, setShowLoserSection] = useState(false);
   const [showPaymentsSection, setShowPaymentsSection] = useState(false);
+  const [showResultsSection, setShowResultsSection] = useState(true);
   
   // Cropper state para foto del perdedor
   const [loserCropperImage, setLoserCropperImage] = useState<string | null>(null);
@@ -301,38 +302,30 @@ export default function PartidaPage() {
 
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 animate-fade-in">
           {/* Header de la partida */}
-          <div className="bg-background-card rounded-2xl p-6 border border-border mb-6">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <div className="flex items-center gap-2 text-foreground-muted text-sm mb-2">
-                  <Calendar className="w-4 h-4" />
-                  <span className="capitalize">{formattedDate}</span>
-                  <span>•</span>
-                  <span>{formattedTime}</span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-                  Detalle de Partida
-                </h1>
-              </div>
-              
-              <div className="flex items-center gap-2">
+          <div className="bg-background-card rounded-2xl p-4 sm:p-6 border border-border mb-6">
+            {/* Título y botones */}
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground flex-1 min-w-0">
+                {game.name || 'Partida de Poker'}
+              </h1>
+              <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                 {/* Botón Editar */}
                 <Link
                   href={`/editar-partida/${game.id}`}
-                  className="p-2 rounded-lg bg-background border border-border hover:border-primary transition-colors"
+                  className="p-1.5 sm:p-2 rounded-lg bg-background border border-border hover:border-primary transition-colors"
                   title="Editar partida"
                 >
-                  <Edit className="w-5 h-5 text-foreground-muted hover:text-primary" />
+                  <Edit className="w-4 h-4 sm:w-5 sm:h-5 text-foreground-muted hover:text-primary" />
                 </Link>
 
                 {/* Botón Compartir con menú */}
                 <div className="relative">
                   <button
                     onClick={() => setShowShareMenu(!showShareMenu)}
-                    className="p-2 rounded-lg bg-background border border-border hover:border-primary transition-colors"
+                    className="p-1.5 sm:p-2 rounded-lg bg-background border border-border hover:border-primary transition-colors"
                     title="Compartir"
                   >
-                    <Share2 className="w-5 h-5 text-foreground-muted" />
+                    <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-foreground-muted" />
                   </button>
 
                   {/* Menú de compartir */}
@@ -383,12 +376,20 @@ export default function PartidaPage() {
                 {/* Botón Eliminar */}
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="p-2 rounded-lg bg-background border border-border hover:border-danger transition-colors"
+                  className="p-1.5 sm:p-2 rounded-lg bg-background border border-border hover:border-danger transition-colors"
                   title="Eliminar"
                 >
-                  <Trash2 className="w-5 h-5 text-foreground-muted hover:text-danger" />
+                  <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 text-foreground-muted hover:text-danger" />
                 </button>
               </div>
+            </div>
+
+            {/* Fecha */}
+            <div className="flex items-center gap-2 text-foreground-muted text-sm mb-4">
+              <Calendar className="w-4 h-4 flex-shrink-0" />
+              <span className="capitalize">{formattedDate}</span>
+              <span>•</span>
+              <span>{formattedTime}</span>
             </div>
 
             {/* Stats */}
@@ -451,13 +452,18 @@ export default function PartidaPage() {
 
           {/* Lista de jugadores */}
           <div className="bg-background-card rounded-2xl border border-border overflow-hidden">
-            <div className="p-4 border-b border-border">
+            <button
+              onClick={() => setShowResultsSection(!showResultsSection)}
+              className="w-full p-4 border-b border-border flex items-center justify-between hover:bg-background/50 transition-colors"
+            >
               <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <Users className="w-5 h-5 text-primary" />
                 Resultados
               </h2>
-            </div>
+              <ChevronDown className={`w-5 h-5 text-foreground-muted transition-transform ${showResultsSection ? 'rotate-180' : ''}`} />
+            </button>
 
+            {showResultsSection && (
             <div className="divide-y divide-border">
               {sortedPlayers.map((gp, index) => {
                 const isWinner = gp.profit > 0;
@@ -538,6 +544,7 @@ export default function PartidaPage() {
                 );
               })}
             </div>
+            )}
           </div>
 
           {/* Foto del perdedor */}
