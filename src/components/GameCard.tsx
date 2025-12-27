@@ -57,8 +57,8 @@ export default function GameCard({ game, index }: GameCardProps) {
         {/* Mejor resultado */}
         <div className="flex items-center justify-between py-3 border-t border-border">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center">
-              <Trophy className="w-4 h-4 text-success" />
+            <div className="w-8 h-8 rounded-full bg-warning/20 flex items-center justify-center">
+              <Trophy className="w-4 h-4 text-warning" />
             </div>
             <div>
               <p className="text-xs text-foreground-muted">Mejor resultado</p>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import { getPlayers, createPlayer, updatePlayer, getAllPlayersStats } from '@/lib/players';
 import { Player, PlayerStats } from '@/types';
@@ -19,7 +20,8 @@ import {
   ArrowUpDown,
   Medal,
   Camera,
-  Trash2
+  Trash2,
+  History
 } from 'lucide-react';
 import { uploadPlayerAvatar, compressImage, deletePlayerAvatar } from '@/lib/storage';
 import ImageCropper from '@/components/ImageCropper';
@@ -36,6 +38,7 @@ const AVATAR_COLORS = [
 ];
 
 export default function JugadoresPage() {
+  const router = useRouter();
   const [players, setPlayers] = useState<Player[]>([]);
   const [stats, setStats] = useState<Map<string, PlayerStats>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -659,9 +662,13 @@ export default function JugadoresPage() {
                           <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
                             {player.name}
                           </h3>
-                          <p className="text-xs sm:text-sm text-foreground-muted">
+                          <button
+                            onClick={() => router.push(`/?jugador=${encodeURIComponent(player.name)}`)}
+                            className="text-xs sm:text-sm text-foreground-muted hover:text-primary flex items-center gap-1 transition-colors"
+                          >
+                            <History className="w-3 h-3" />
                             {playerStats?.total_games || 0} partidas
-                          </p>
+                          </button>
                         </div>
 
                         {/* Stats */}
@@ -714,8 +721,8 @@ export default function JugadoresPage() {
                           {playerStats && playerStats.total_games > 0 && (
                             <div className="text-right hidden sm:block">
                               <p className="text-xs text-foreground-muted mb-0.5">Peor</p>
-                              <p className="text-lg font-bold text-danger">
-                                {playerStats.worst_game.toFixed(2)}€
+                              <p className={`text-lg font-bold ${playerStats.worst_game >= 0 ? 'text-success' : 'text-danger'}`}>
+                                {playerStats.worst_game > 0 ? '+' : ''}{playerStats.worst_game.toFixed(2)}€
                               </p>
                             </div>
                           )}
@@ -737,7 +744,9 @@ export default function JugadoresPage() {
                           </div>
                           <div className="text-center">
                             <p className="text-xs text-foreground-muted">Peor</p>
-                            <p className="font-bold text-danger text-sm">{playerStats.worst_game.toFixed(2)}€</p>
+                            <p className={`font-bold text-sm ${playerStats.worst_game >= 0 ? 'text-success' : 'text-danger'}`}>
+                              {playerStats.worst_game > 0 ? '+' : ''}{playerStats.worst_game.toFixed(2)}€
+                            </p>
                           </div>
                         </div>
                       )}

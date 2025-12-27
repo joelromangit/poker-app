@@ -178,7 +178,7 @@ export interface PlayerSummary {
 
 export interface HomeStats {
   leader: { player: PlayerSummary; balance: number } | null;
-  rebuyKing: { player: PlayerSummary; totalRebuys: number } | null;
+  rebuyKing: { player: PlayerSummary; avgRebuys: number } | null;
 }
 
 export async function getHomeStats(): Promise<HomeStats> {
@@ -198,9 +198,9 @@ export async function getHomeStats(): Promise<HomeStats> {
     return { leader: null, rebuyKing: null };
   }
 
-  // Calcular balance total por jugador
+  // Calcular balance total por jugador y rebuys (total + count de partidas)
   const playerBalances = new Map<string, { player: PlayerSummary; balance: number }>();
-  const playerRebuys = new Map<string, { player: PlayerSummary; totalRebuys: number }>();
+  const playerRebuys = new Map<string, { player: PlayerSummary; totalRebuys: number; gamesCount: number }>();
 
   data.forEach((gp: any) => {
     const playerId = gp.players?.id;
@@ -221,12 +221,13 @@ export async function getHomeStats(): Promise<HomeStats> {
       playerBalances.set(playerId, { player: playerSummary, balance: gp.profit });
     }
 
-    // Rebuys
+    // Rebuys (acumular total y contar partidas)
     const currentRebuys = playerRebuys.get(playerId);
     if (currentRebuys) {
       currentRebuys.totalRebuys += gp.rebuys || 0;
+      currentRebuys.gamesCount += 1;
     } else {
-      playerRebuys.set(playerId, { player: playerSummary, totalRebuys: gp.rebuys || 0 });
+      playerRebuys.set(playerId, { player: playerSummary, totalRebuys: gp.rebuys || 0, gamesCount: 1 });
     }
   });
 
@@ -238,11 +239,12 @@ export async function getHomeStats(): Promise<HomeStats> {
     }
   });
 
-  // Encontrar rey del rebuy (más rebuys)
-  let rebuyKing: { player: PlayerSummary; totalRebuys: number } | null = null;
+  // Encontrar rey del rebuy (mayor MEDIA de rebuys por partida)
+  let rebuyKing: { player: PlayerSummary; avgRebuys: number } | null = null;
   playerRebuys.forEach((value) => {
-    if (value.totalRebuys > 0 && (!rebuyKing || value.totalRebuys > rebuyKing.totalRebuys)) {
-      rebuyKing = value;
+    const avgRebuys = value.gamesCount > 0 ? value.totalRebuys / value.gamesCount : 0;
+    if (avgRebuys > 0 && (!rebuyKing || avgRebuys > rebuyKing.avgRebuys)) {
+      rebuyKing = { player: value.player, avgRebuys };
     }
   });
 

@@ -69,6 +69,11 @@ export async function getGamesSummary(): Promise<GameSummary[]> {
       (curr.profit < (prev?.profit || Infinity)) ? curr : prev
     , null);
 
+    // Lista de participantes
+    const participants = gamePlayers
+      .map((gp: any) => gp.players?.name)
+      .filter((name: string | undefined): name is string => !!name);
+
     return {
       id: game.id,
       created_at: game.created_at,
@@ -79,6 +84,7 @@ export async function getGamesSummary(): Promise<GameSummary[]> {
       top_winner_profit: topWinner?.profit || 0,
       worst_loser: worstLoser?.players?.name || '-',
       worst_loser_profit: worstLoser?.profit || 0,
+      participants,
     };
   });
 }

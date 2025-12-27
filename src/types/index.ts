@@ -45,6 +45,7 @@ export interface GameSummary {
   top_winner_profit: number;
   worst_loser: string;
   worst_loser_profit: number;
+  participants: string[]; // Lista de nombres de todos los participantes
 }
 
 // Estadísticas de un jugador
