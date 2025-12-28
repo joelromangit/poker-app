@@ -16,7 +16,11 @@ import { InstallBanner } from '@/components/InstallPrompt';
 
 export default function Home() {
   return (
-    <Suspense fallback={<LoadingSpinner />}>
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-12">
+        <div className="w-12 h-12 rounded-full border-4 border-border border-t-primary animate-spin" />
+      </div>
+    }>
       <HomeContent />
     </Suspense>
   );
