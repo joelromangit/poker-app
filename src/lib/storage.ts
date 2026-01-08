@@ -1,21 +1,16 @@
-import { supabase } from './supabase';
+import { db } from './supabase';
 
 // Subir avatar de jugador
 export async function uploadPlayerAvatar(
   playerId: string,
   file: File
 ): Promise<string | null> {
-  if (!supabase) {
-    console.error('Supabase no está configurado');
-    return null;
-  }
-
   const fileExt = file.name.split('.').pop();
   const fileName = `${playerId}-${Date.now()}.${fileExt}`;
   const filePath = `players/${fileName}`;
 
   // Subir archivo
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await db.storage
     .from('avatars')
     .upload(filePath, file, {
       cacheControl: '3600',
@@ -28,7 +23,7 @@ export async function uploadPlayerAvatar(
   }
 
   // Obtener URL pública
-  const { data } = supabase.storage
+  const { data } = db.storage
     .from('avatars')
     .getPublicUrl(filePath);
 
@@ -37,7 +32,7 @@ export async function uploadPlayerAvatar(
 
 // Eliminar avatar de jugador
 export async function deletePlayerAvatar(avatarUrl: string): Promise<boolean> {
-  if (!supabase || !avatarUrl) return false;
+  if (!avatarUrl) return false;
 
   try {
     // Extraer path del URL
@@ -45,10 +40,10 @@ export async function deletePlayerAvatar(avatarUrl: string): Promise<boolean> {
     const pathParts = url.pathname.split('/');
     const bucketIndex = pathParts.indexOf('avatars');
     if (bucketIndex === -1) return false;
-    
+
     const filePath = pathParts.slice(bucketIndex + 1).join('/');
 
-    const { error } = await supabase.storage
+    const { error } = await db.storage
       .from('avatars')
       .remove([filePath]);
 
@@ -68,17 +63,12 @@ export async function uploadLoserPhoto(
   gameId: string,
   file: File
 ): Promise<string | null> {
-  if (!supabase) {
-    console.error('Supabase no está configurado');
-    return null;
-  }
-
   const fileExt = file.name.split('.').pop();
   const fileName = `${gameId}-${Date.now()}.${fileExt}`;
   const filePath = `games/${fileName}`;
 
   // Subir archivo
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await db.storage
     .from('loser-photos')
     .upload(filePath, file, {
       cacheControl: '3600',
@@ -91,7 +81,7 @@ export async function uploadLoserPhoto(
   }
 
   // Obtener URL pública
-  const { data } = supabase.storage
+  const { data } = db.storage
     .from('loser-photos')
     .getPublicUrl(filePath);
 
@@ -100,17 +90,17 @@ export async function uploadLoserPhoto(
 
 // Eliminar foto del perdedor
 export async function deleteLoserPhoto(photoUrl: string): Promise<boolean> {
-  if (!supabase || !photoUrl) return false;
+  if (!photoUrl) return false;
 
   try {
     const url = new URL(photoUrl);
     const pathParts = url.pathname.split('/');
     const bucketIndex = pathParts.indexOf('loser-photos');
     if (bucketIndex === -1) return false;
-    
+
     const filePath = pathParts.slice(bucketIndex + 1).join('/');
 
-    const { error } = await supabase.storage
+    const { error } = await db.storage
       .from('loser-photos')
       .remove([filePath]);
 
@@ -134,18 +124,18 @@ export async function compressImage(file: File, maxWidth = 400): Promise<File> {
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d')!;
-        
+
         let { width, height } = img;
-        
+
         if (width > maxWidth) {
           height = (height * maxWidth) / width;
           width = maxWidth;
         }
-        
+
         canvas.width = width;
         canvas.height = height;
         ctx.drawImage(img, 0, 0, width, height);
-        
+
         canvas.toBlob(
           (blob) => {
             if (blob) {

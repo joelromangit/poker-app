@@ -7,7 +7,7 @@ import Header from '@/components/Header';
 import NumberInput from '@/components/NumberInput';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { getGameById, updateGame } from '@/lib/games';
-import { getPlayers, createPlayer } from '@/lib/players';
+import { getPlayers, createPlayer, getAvatarColor } from '@/lib/players';
 import { Player, GameFormPlayer, Game } from '@/types';
 import { 
   Plus, 
@@ -88,12 +88,13 @@ export default function EditarPartidaPage() {
       setGameTime(existingDate.toTimeString().slice(0, 5));
       
       // Mapear jugadores de la partida al formato del formulario
-      const formPlayers: GameFormPlayer[] = gameData.players.map(gp => ({
-        player_id: gp.player_id,
-        player: gp.player,
-        final_chips: gp.final_chips.toString(),
-        rebuys: gp.rebuys.toString(),
-      }));
+      const formPlayers: GameFormPlayer[] = gameData.game_players
+        .map(gp => ({
+          player_id: gp.player_id,
+          player: gp.player,
+          final_chips: gp.final_chips.toString(),
+          rebuys: (gp.rebuys || 0).toString(),
+        }));
       setSelectedPlayers(formPlayers);
     }
     setLoadingGame(false);
@@ -455,7 +456,7 @@ export default function EditarPartidaPage() {
                         ) : (
                           <div
                             className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                            style={{ backgroundColor: player.avatar_color }}
+                            style={{ backgroundColor: getAvatarColor(player.avatar_color) }}
                           >
                             {player.name.charAt(0).toUpperCase()}
                           </div>
@@ -502,15 +503,15 @@ export default function EditarPartidaPage() {
                       {gp.player.avatar_url ? (
                         <img
                           src={gp.player.avatar_url}
-                          alt={gp.player.name}
+                          alt={gp.player.name || ''}
                           className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                         />
                       ) : (
                         <div
                           className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
-                          style={{ backgroundColor: gp.player.avatar_color }}
+                          style={{ backgroundColor: getAvatarColor(gp.player.avatar_color) }}
                         >
-                          {gp.player.name.charAt(0).toUpperCase()}
+                          {gp.player.name?.charAt(0).toUpperCase() || '?'}
                         </div>
                       )}
 
@@ -518,7 +519,7 @@ export default function EditarPartidaPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <p className="font-semibold text-foreground truncate">
-                            {gp.player.name}
+                            {gp.player.name || 'Jugador desconocido'}
                           </p>
                           <button
                             type="button"
