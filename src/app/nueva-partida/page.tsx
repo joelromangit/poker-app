@@ -28,8 +28,43 @@ import {
   Trash2,
   FileWarning,
   Calendar,
-  Clock
+  Clock,
+  Trophy,
+  Banknote,
+  Lock,
+  Settings2
 } from 'lucide-react';
+
+// Game mode types
+type GameMode = 'cash' | 'tournament';
+
+// Cash game format types
+type CashGameFormat = 'entry5' | 'entry10' | 'custom';
+
+// Predefined cash game formats (100BB with easy-to-manage chip values)
+const CASH_GAME_FORMATS = {
+  entry5: {
+    name: '5€ Entry',
+    description: '100BB - SB 5, BB 10',
+    chipValue: 0.005, // 5€ / 1000 chips
+    buyIn: 1000,
+    totalEntry: 5,
+  },
+  entry10: {
+    name: '10€ Entry',
+    description: '100BB - SB 5, BB 10',
+    chipValue: 0.01, // 10€ / 1000 chips
+    buyIn: 1000,
+    totalEntry: 10,
+  },
+  custom: {
+    name: 'Personalizado',
+    description: 'Configura tus propios valores',
+    chipValue: 0.01,
+    buyIn: 1000,
+    totalEntry: 10,
+  },
+};
 
 // Clave para localStorage
 const DRAFT_KEY = 'poker-draft-game';
@@ -48,6 +83,8 @@ interface GameDraft {
   gameDate: string;
   gameTime: string;
   savedAt: string;
+  gameMode?: GameMode;
+  cashGameFormat?: CashGameFormat;
 }
 
 // Función para guardar borrador
@@ -103,6 +140,10 @@ export default function NuevaPartidaPage() {
   const [gameDate, setGameDate] = useState('');
   const [gameTime, setGameTime] = useState('');
 
+  // Game mode and format
+  const [gameMode, setGameMode] = useState<GameMode>('cash');
+  const [cashGameFormat, setCashGameFormat] = useState<CashGameFormat>('entry5');
+
   // Modal para nuevo jugador
   const [showNewPlayerModal, setShowNewPlayerModal] = useState(false);
   const [newPlayerName, setNewPlayerName] = useState('');
@@ -138,6 +179,8 @@ export default function NuevaPartidaPage() {
       setNotes(draft.notes);
       setGameDate(draft.gameDate || currentDate);
       setGameTime(draft.gameTime || currentTime);
+      setGameMode(draft.gameMode || 'cash');
+      setCashGameFormat(draft.cashGameFormat || 'custom');
       
       // Restaurar jugadores (solo los que existen)
       const restoredPlayers: GameFormPlayer[] = [];
@@ -155,9 +198,13 @@ export default function NuevaPartidaPage() {
       }
       setSelectedPlayers(restoredPlayers);
     } else {
-      // Si no hay borrador, usar fecha y hora actuales
+      // Si no hay borrador, usar fecha y hora actuales y formato por defecto
       setGameDate(currentDate);
       setGameTime(currentTime);
+      // Set default format values
+      const defaultFormat = CASH_GAME_FORMATS.entry5;
+      setChipValue(defaultFormat.chipValue.toString());
+      setBuyIn(defaultFormat.buyIn.toString());
     }
     setDraftLoaded(true);
   };
@@ -182,19 +229,24 @@ export default function NuevaPartidaPage() {
         notes,
         gameDate,
         gameTime,
+        gameMode,
+        cashGameFormat,
       });
     } else {
       // Si no hay datos, limpiar el borrador
       clearDraft();
     }
-  }, [gameName, chipValue, buyIn, selectedPlayers, notes, gameDate, gameTime, draftLoaded]);
+  }, [gameName, chipValue, buyIn, selectedPlayers, notes, gameDate, gameTime, gameMode, cashGameFormat, draftLoaded]);
 
   // Descartar borrador
   const handleDiscardDraft = () => {
     clearDraft();
     setGameName('');
-    setChipValue('0.01');
-    setBuyIn('1000');
+    setGameMode('cash');
+    setCashGameFormat('entry5');
+    const defaultFormat = CASH_GAME_FORMATS.entry5;
+    setChipValue(defaultFormat.chipValue.toString());
+    setBuyIn(defaultFormat.buyIn.toString());
     setSelectedPlayers([]);
     setNotes('');
     // Establecer fecha y hora actuales
@@ -202,6 +254,23 @@ export default function NuevaPartidaPage() {
     setGameDate(currentNow.toISOString().split('T')[0]);
     setGameTime(currentNow.toTimeString().slice(0, 5));
     setShowDraftBanner(false);
+  };
+
+  // Handle cash game format change
+  const handleFormatChange = (format: CashGameFormat) => {
+    setCashGameFormat(format);
+    if (format !== 'custom') {
+      const formatConfig = CASH_GAME_FORMATS[format];
+      setChipValue(formatConfig.chipValue.toString());
+      setBuyIn(formatConfig.buyIn.toString());
+    }
+  };
+
+  // Calculate total entry for custom mode
+  const calculateCustomEntry = (): number => {
+    const chips = parseFloat(buyIn) || 0;
+    const value = parseFloat(chipValue) || 0;
+    return chips * value;
   };
 
   // Jugadores no seleccionados aún
@@ -381,8 +450,8 @@ export default function NuevaPartidaPage() {
     <>
       <Header />
 
-      <main className="flex-1 max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-        <div className="animate-fade-in">
+      <main className="flex-1 w-full max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        <div className="animate-fade-in w-full">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
             Nueva Partida
           </h1>
@@ -458,46 +527,176 @@ export default function NuevaPartidaPage() {
             </div>
           </section>
 
-          {/* Configuración de fichas */}
+          {/* Game Mode Selection */}
           <section className="bg-background-card rounded-2xl p-5 sm:p-6 border border-border mb-6">
             <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Coins className="w-5 h-5 text-accent" />
-              Configuración de Fichas
+              <Settings2 className="w-5 h-5 text-primary" />
+              Modo de Juego
             </h2>
 
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-foreground-muted mb-2">
-                  Valor de cada ficha (€)
-                </label>
-<NumberInput
-                                  value={chipValue}
-                                  onChange={setChipValue}
-                                  step={0.01}
-                                  min={0.01}
-                                  placeholder="0.01"
-                                  icon={<Euro className="w-4 h-4" />}
-                                />
-              </div>
+            {/* Mode Selection */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {/* Cash Game - Active */}
+              <button
+                type="button"
+                onClick={() => setGameMode('cash')}
+                className={`p-4 rounded-xl border-2 transition-all text-left ${
+                  gameMode === 'cash'
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Banknote className={`w-5 h-5 ${gameMode === 'cash' ? 'text-primary' : 'text-foreground-muted'}`} />
+                  <span className={`font-semibold ${gameMode === 'cash' ? 'text-foreground' : 'text-foreground-muted'}`}>
+                    Cash Game
+                  </span>
+                </div>
+                <p className="text-xs text-foreground-muted">Partida con dinero real</p>
+              </button>
 
-              <div>
-                <label className="block text-sm text-foreground-muted mb-2">
-                  Fichas por buy-in
-                </label>
-<NumberInput
-                                  value={buyIn}
-                                  onChange={setBuyIn}
-                                  step={100}
-                                  min={1}
-                                  placeholder="1000"
-                                  icon={<Calculator className="w-4 h-4" />}
-                                />
-              </div>
+              {/* Tournament - Disabled */}
+              <button
+                type="button"
+                disabled
+                className="p-4 rounded-xl border-2 border-border bg-background-secondary/50 text-left opacity-60 cursor-not-allowed"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Trophy className="w-5 h-5 text-foreground-muted" />
+                  <span className="font-semibold text-foreground-muted">Torneo</span>
+                  <Lock className="w-3 h-3 text-foreground-muted" />
+                </div>
+                <p className="text-xs text-foreground-muted">Proximamente</p>
+              </button>
             </div>
 
-            {/* Info del bote */}
-            {selectedPlayers.length > 0 && (
-              <div className="mt-4 p-4 bg-background rounded-xl border border-border">
+            {/* Cash Game Format Selection */}
+            {gameMode === 'cash' && (
+              <>
+                <h3 className="text-sm font-medium text-foreground mb-3">Formato de entrada</h3>
+                <div className="flex gap-2 mb-4">
+                  {/* 5€ Entry */}
+                  <button
+                    type="button"
+                    onClick={() => handleFormatChange('entry5')}
+                    className={`flex-1 p-3 rounded-xl border-2 transition-all text-center ${
+                      cashGameFormat === 'entry5'
+                        ? 'border-accent bg-accent/10'
+                        : 'border-border hover:border-accent/50'
+                    }`}
+                  >
+                    <span className={`font-bold text-lg ${cashGameFormat === 'entry5' ? 'text-accent' : 'text-foreground'}`}>
+                      5€
+                    </span>
+                    <p className="text-xs text-foreground-muted mt-0.5">100BB</p>
+                  </button>
+
+                  {/* 10€ Entry */}
+                  <button
+                    type="button"
+                    onClick={() => handleFormatChange('entry10')}
+                    className={`flex-1 p-3 rounded-xl border-2 transition-all text-center ${
+                      cashGameFormat === 'entry10'
+                        ? 'border-accent bg-accent/10'
+                        : 'border-border hover:border-accent/50'
+                    }`}
+                  >
+                    <span className={`font-bold text-lg ${cashGameFormat === 'entry10' ? 'text-accent' : 'text-foreground'}`}>
+                      10€
+                    </span>
+                    <p className="text-xs text-foreground-muted mt-0.5">100BB</p>
+                  </button>
+
+                  {/* Custom */}
+                  <button
+                    type="button"
+                    onClick={() => handleFormatChange('custom')}
+                    className={`flex-1 p-3 rounded-xl border-2 transition-all text-center ${
+                      cashGameFormat === 'custom'
+                        ? 'border-accent bg-accent/10'
+                        : 'border-border hover:border-accent/50'
+                    }`}
+                  >
+                    <span className={`font-bold text-lg ${cashGameFormat === 'custom' ? 'text-accent' : 'text-foreground'}`}>
+                      Custom
+                    </span>
+                    <p className="text-xs text-foreground-muted mt-0.5">Configura</p>
+                  </button>
+                </div>
+
+                {/* Format Info or Custom Fields */}
+                {cashGameFormat !== 'custom' ? (
+                  <div className="p-4 bg-background rounded-xl border border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-foreground-muted">Entry:</span>
+                      <span className="font-bold text-accent">{CASH_GAME_FORMATS[cashGameFormat].totalEntry}€</span>
+                    </div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-foreground-muted">Fichas:</span>
+                      <span className="font-medium text-foreground">{CASH_GAME_FORMATS[cashGameFormat].buyIn}</span>
+                    </div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-foreground-muted">Valor ficha:</span>
+                      <span className="font-medium text-foreground">{CASH_GAME_FORMATS[cashGameFormat].chipValue}€</span>
+                    </div>
+                    <div className="text-xs text-foreground-muted pt-2 border-t border-border">
+                      Small Blind: 5 fichas | Big Blind: 10 fichas
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-background rounded-xl border border-border">
+                    <div className="grid sm:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-sm text-foreground-muted mb-2">
+                          Valor de cada ficha (€)
+                        </label>
+                        <NumberInput
+                          value={chipValue}
+                          onChange={setChipValue}
+                          step={0.001}
+                          min={0.001}
+                          placeholder="0.01"
+                          icon={<Euro className="w-4 h-4" />}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-foreground-muted mb-2">
+                          Fichas por buy-in
+                        </label>
+                        <NumberInput
+                          value={buyIn}
+                          onChange={setBuyIn}
+                          step={100}
+                          min={1}
+                          placeholder="1000"
+                          icon={<Calculator className="w-4 h-4" />}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Dynamic Total Calculation */}
+                    <div className="pt-3 border-t border-border">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-foreground-muted">Entry total calculado:</span>
+                        <span className="font-bold text-lg text-accent">{calculateCustomEntry().toFixed(2)}€</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+
+          {/* Configuración de fichas - Only show pot info */}
+          {selectedPlayers.length > 0 && (
+            <section className="bg-background-card rounded-2xl p-5 sm:p-6 border border-border mb-6">
+              <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Coins className="w-5 h-5 text-accent" />
+                Bote en Juego
+              </h2>
+
+              <div className="p-4 bg-background rounded-xl border border-border">
                 <div className="flex items-center justify-between">
                   <span className="text-foreground-muted">Bote total:</span>
                   <span className="text-xl font-bold text-accent">{totalPot.toFixed(2)}€</span>
@@ -506,8 +705,8 @@ export default function NuevaPartidaPage() {
                   {expectedTotalChips} fichas en juego ({selectedPlayers.reduce((s, p) => s + parseRebuys(p.rebuys), 0)} rebuys)
                 </p>
               </div>
-            )}
-          </section>
+            </section>
+          )}
 
           {/* Jugadores */}
           <section className="bg-background-card rounded-2xl p-5 sm:p-6 border border-border mb-6">

@@ -16,27 +16,70 @@ Una aplicación elegante para llevar el registro de tus partidas de poker con am
 - 📊 **Estadísticas** - Ve el historial completo de partidas
 - 🔗 **Compartir** - Comparte los resultados fácilmente
 
+## 📋 Tabla de Contenidos
+
+- [🚀 Configuración](#configuración)
+  - [Desarrollo local](#1-instalar-supabase-cli-para-desarrollo-local)
+  - [Producción](#️-configuración-con-supabase-cloud-producción)
+- [🌐 Desplegar en Vercel](#-desplegar-en-vercel)
+- [📝 Uso](#-uso)
+- [🛠️ Tecnologías](#️-tecnologías)
+- [❓ Preguntas Frecuentes](#-preguntas-frecuentes)
+
 ## 🚀 Configuración
 
-### 1. Configurar Supabase
+### 1. Instalar Supabase CLI (para desarrollo local)
 
-1. Crea una cuenta en [Supabase](https://supabase.com)
-2. Crea un nuevo proyecto
-3. Ve a **SQL Editor** y ejecuta el contenido de `supabase-schema.sql`
-4. Ve a **Settings > API** y copia:
-   - Project URL
-   - anon public key
+```bash
+# Usando npm
+npm install -g supabase
 
-### 2. Configurar variables de entorno
+# O usando Homebrew (macOS)
+brew install supabase/tap/supabase
+```
+
+### 2. Iniciar Supabase local
+
+```bash
+# Iniciar todos los servicios de Supabase localmente
+supabase start
+
+# Ver estado de los servicios
+supabase status
+
+# Detener los servicios cuando termines
+supabase stop
+```
+
+**Ports disponibles:**
+- API: http://localhost:54321
+- DB: localhost:54322
+- Studio: http://localhost:54323
+- Storage: http://localhost:54323/storage
+
+### 3. Configurar base de datos local
+
+La primera vez que inicies Supabase localmente, se creará automáticamente la estructura de la base de datos. Si necesitas aplicar cambios:
+
+```bash
+# Aplicar el schema a la base de datos local
+supabase db push
+
+# O ejecutar SQL directamente
+supabase db execute -f supabase-schema.sql
+```
+
+### 4. Configurar variables de entorno para desarrollo local
 
 Crea un archivo `.env.local` en la raíz del proyecto:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=tu-anon-key-aqui
+# Desarrollo local (valores por defecto de Supabase local)
+NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvayIsInJvbGUiOiJhbGciLCJpYXQiOjE2MDAwMDAwMDAsImV4cCI6MTc4MDAwMDAwMH0.placeholder
 ```
 
-### 3. Instalar y ejecutar
+### 5. Instalar y ejecutar la aplicación
 
 ```bash
 # Instalar dependencias
