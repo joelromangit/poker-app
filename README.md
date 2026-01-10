@@ -57,18 +57,6 @@ supabase stop
 - Studio: http://localhost:54323
 - Storage: http://localhost:54323/storage
 
-### 3. Configurar base de datos local
-
-La primera vez que inicies Supabase localmente, se creará automáticamente la estructura de la base de datos. Si necesitas aplicar cambios:
-
-```bash
-# Aplicar el schema a la base de datos local
-supabase db push
-
-# O ejecutar SQL directamente
-supabase db execute -f supabase-schema.sql
-```
-
 ### 4. Configurar variables de entorno para desarrollo local
 
 Crea un archivo `.env.local` en la raíz del proyecto:
