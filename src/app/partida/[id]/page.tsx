@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { getGameById, deleteGame } from '@/lib/games';
-import { Game, GamePlayer } from '@/types';
+import type { Game, GamePlayer } from '@/types';
 import { getAvatarColor } from '@/lib/players';
 import {
   ArrowLeft,
@@ -33,6 +33,8 @@ import {
   Loader2,
   X,
   ChevronDown,
+  Clock,
+  AlertCircle,
 } from 'lucide-react';
 import { uploadLoserPhoto, compressImage, deleteLoserPhoto } from '@/lib/storage';
 import { updateGameLoserPhoto } from '@/lib/games';
@@ -265,6 +267,177 @@ export default function PartidaPage() {
             </Link>
           </div>
         </main>
+      </>
+    );
+  }
+
+  // Check if game is in progress
+  const isInProgress = game.status === 'in_progress';
+
+  // Redirect to edit page if in_progress (or show banner)
+  if (isInProgress) {
+    return (
+      <>
+        <Header />
+        <main className="flex-1">
+          {/* Back button */}
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-foreground-muted hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Volver al historial</span>
+            </Link>
+          </div>
+
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 animate-fade-in">
+            {/* Status banner */}
+            <div className="bg-warning/10 border border-warning/30 rounded-2xl p-6 mb-6 text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-warning/20 flex items-center justify-center">
+                <Clock className="w-8 h-8 text-warning" />
+              </div>
+              <h1 className="text-xl font-bold text-foreground mb-2">
+                Partida en curso
+              </h1>
+              <p className="text-foreground-muted mb-6">
+                Esta partida aún no ha sido completada. Añade los resultados finales para ver las estadísticas.
+              </p>
+              <Link
+                href={`/editar-partida/${game.id}`}
+                className="inline-flex items-center gap-2 btn-primary px-6 py-3 rounded-xl font-medium"
+              >
+                <Edit className="w-5 h-5" />
+                Completar partida
+              </Link>
+            </div>
+
+            {/* Game info summary */}
+            <div className="bg-background-card rounded-2xl p-4 sm:p-6 border border-border mb-6">
+              <h2 className="text-lg font-semibold text-foreground mb-4">
+                {game.name || 'Partida de Poker'}
+              </h2>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-foreground-muted" />
+                  <span className="text-foreground-muted">
+                    {new Date(game.created_at).toLocaleDateString('es-ES', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-foreground-muted" />
+                  <span className="text-foreground-muted">
+                    {game.game_players.length} jugadores
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-foreground-muted" />
+                  <span className="text-foreground-muted">
+                    {game.buy_in} fichas
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Euro className="w-4 h-4 text-foreground-muted" />
+                  <span className="text-foreground-muted">
+                    {game.chip_value}€/ficha
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Players list */}
+            <div className="bg-background-card rounded-2xl p-4 sm:p-6 border border-border mb-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary" />
+                Jugadores
+              </h3>
+              <div className="space-y-2">
+                {game.game_players.map((gp) => (
+                  <div
+                    key={gp.player_id}
+                    className="flex items-center gap-3 p-3 bg-background rounded-xl"
+                  >
+                    {gp.player.avatar_url ? (
+                      <img
+                        src={gp.player.avatar_url}
+                        alt={gp.player.name}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
+                        style={{ backgroundColor: getAvatarColor(gp.player.avatar_color) }}
+                      >
+                        {gp.player.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <span className="font-medium text-foreground">{gp.player.name}</span>
+                    <span className="ml-auto text-sm text-foreground-muted">
+                      <AlertCircle className="w-4 h-4 inline mr-1" />
+                      Sin resultado
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Delete button */}
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex items-center gap-2 px-4 py-2 text-danger hover:bg-danger/10 rounded-lg transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Eliminar partida
+              </button>
+            </div>
+          </div>
+        </main>
+
+        {/* Delete confirmation modal */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-background-card rounded-2xl p-6 max-w-sm w-full border border-border animate-slide-in">
+              <h3 className="text-xl font-bold text-foreground mb-2">¿Eliminar partida?</h3>
+              <p className="text-foreground-muted mb-6">
+                Esta acción no se puede deshacer. Se eliminarán todos los datos de la partida.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 px-4 py-3 rounded-xl border border-border text-foreground-muted hover:bg-background transition-colors"
+                  disabled={deleting}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-3 rounded-xl bg-danger text-white font-medium hover:bg-danger/90 transition-colors flex items-center justify-center gap-2"
+                >
+                  {deleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Eliminando...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Eliminar
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </>
     );
   }
