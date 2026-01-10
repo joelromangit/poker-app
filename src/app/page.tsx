@@ -8,7 +8,7 @@ import GameCard from '@/components/GameCard';
 import EmptyState from '@/components/EmptyState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { getGamesSummary } from '@/lib/games';
-import { getHomeStats, HomeStats, getPlayers, getPlayerStats } from '@/lib/players';
+import { getHomeStats, HomeStats, getPlayers, getPlayerStats, getAvatarColor } from '@/lib/players';
 import { GameSummary, Player, PlayerStats } from '@/types';
 import { Trophy, RefreshCw, Spade, FileWarning, ArrowRight, X, Search, Users, ChevronDown, TrendingUp, TrendingDown } from 'lucide-react';
 import { getDraft, clearDraft } from './nueva-partida/page';
@@ -118,7 +118,7 @@ function HomeContent() {
   const filteredGames = games.filter(game => {
     // Filtrar por jugador si está seleccionado
     if (playerFilter) {
-      const hasPlayer = game.participants?.some(name => 
+      const hasPlayer = game.participants.some(name => 
         name.toLowerCase() === playerFilter.toLowerCase()
       );
       if (!hasPlayer) return false;
@@ -221,7 +221,7 @@ function HomeContent() {
                       ) : (
                         <div
                           className="w-full h-full rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-xl border-2 border-primary"
-                          style={{ backgroundColor: selectedPlayer.avatar_color }}
+                          style={{ backgroundColor: getAvatarColor(selectedPlayer.avatar_color) }}
                         >
                           {selectedPlayer.name.charAt(0).toUpperCase()}
                         </div>
@@ -430,7 +430,7 @@ function HomeContent() {
                               ) : (
                                 <div
                                   className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                                  style={{ backgroundColor: player.avatar_color }}
+                                  style={{ backgroundColor: getAvatarColor(player.avatar_color) }}
                                 >
                                   {player.name.charAt(0).toUpperCase()}
                                 </div>

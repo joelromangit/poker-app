@@ -1,18 +1,9 @@
-import { supabase, DbPlayer } from './supabase';
+import { db, Player as DbPlayer } from './supabase';
 import { Player, PlayerStats, CreatePlayerData } from '@/types';
 
-// Verificar que Supabase está configurado
-function checkSupabase() {
-  if (!supabase) {
-    throw new Error('Supabase no está configurado');
-  }
-  return supabase;
-}
 
 // Obtener todos los jugadores activos
 export async function getPlayers(): Promise<Player[]> {
-  const db = checkSupabase();
-
   const { data, error } = await db
     .from('players')
     .select('*')
@@ -24,13 +15,11 @@ export async function getPlayers(): Promise<Player[]> {
     return [];
   }
 
-  return data as Player[];
+  return data
 }
 
 // Obtener un jugador por ID
 export async function getPlayerById(id: string): Promise<Player | null> {
-  const db = checkSupabase();
-
   const { data, error } = await db
     .from('players')
     .select('*')
@@ -42,13 +31,11 @@ export async function getPlayerById(id: string): Promise<Player | null> {
     return null;
   }
 
-  return data as Player;
+  return data;
 }
 
 // Crear un nuevo jugador
 export async function createPlayer(playerData: CreatePlayerData): Promise<Player | null> {
-  const db = checkSupabase();
-
   const { data, error } = await db
     .from('players')
     .insert({
@@ -64,7 +51,7 @@ export async function createPlayer(playerData: CreatePlayerData): Promise<Player
     return null;
   }
 
-  return data as Player;
+  return data;
 }
 
 // Datos para actualizar jugador (incluye avatar_url)
@@ -74,8 +61,6 @@ export interface UpdatePlayerData extends Partial<CreatePlayerData> {
 
 // Actualizar un jugador
 export async function updatePlayer(id: string, updates: UpdatePlayerData): Promise<Player | null> {
-  const db = checkSupabase();
-
   const { data, error } = await db
     .from('players')
     .update(updates)
@@ -88,13 +73,11 @@ export async function updatePlayer(id: string, updates: UpdatePlayerData): Promi
     return null;
   }
 
-  return data as Player;
+  return data;
 }
 
 // Desactivar un jugador (soft delete)
 export async function deactivatePlayer(id: string): Promise<boolean> {
-  const db = checkSupabase();
-
   const { error } = await db
     .from('players')
     .update({ is_active: false })
@@ -110,8 +93,6 @@ export async function deactivatePlayer(id: string): Promise<boolean> {
 
 // Obtener estadísticas de un jugador
 export async function getPlayerStats(playerId: string): Promise<PlayerStats | null> {
-  const db = checkSupabase();
-
   // Obtener el jugador
   const player = await getPlayerById(playerId);
   if (!player) return null;
@@ -127,8 +108,8 @@ export async function getPlayerStats(playerId: string): Promise<PlayerStats | nu
     return null;
   }
 
-  const gamePlayers = gamePlayersData || [];
-  
+  const gamePlayers = gamePlayersData;
+
   if (gamePlayers.length === 0) {
     return {
       player,
@@ -182,15 +163,13 @@ export interface HomeStats {
 }
 
 export async function getHomeStats(): Promise<HomeStats> {
-  const db = checkSupabase();
-
   // Obtener todos los game_players con info de jugadores
   const { data, error } = await db
     .from('game_players')
     .select(`
       profit,
       rebuys,
-      players (id, name, avatar_url, avatar_color)
+      player: players (id, name, avatar_url, avatar_color)
     `);
 
   if (error || !data) {
@@ -202,15 +181,15 @@ export async function getHomeStats(): Promise<HomeStats> {
   const playerBalances = new Map<string, { player: PlayerSummary; balance: number }>();
   const playerRebuys = new Map<string, { player: PlayerSummary; totalRebuys: number; gamesCount: number }>();
 
-  data.forEach((gp: any) => {
-    const playerId = gp.players?.id;
-    const playerData = gp.players;
+  data.forEach((gp) => {
+    const playerId = gp.player?.id;
+    const playerData = gp.player;
     if (!playerId || !playerData) return;
 
     const playerSummary: PlayerSummary = {
       name: playerData.name,
       avatar_url: playerData.avatar_url || undefined,
-      avatar_color: playerData.avatar_color || '#10B981',
+      avatar_color: getAvatarColor(playerData.avatar_color),
     };
 
     // Balance
@@ -249,6 +228,11 @@ export async function getHomeStats(): Promise<HomeStats> {
   });
 
   return { leader, rebuyKing };
+}
+
+// Obtener color de avatar con fallback seguro
+export function getAvatarColor(color: string | null | undefined): string {
+  return color || '#10B981';
 }
 
 // Colores aleatorios para avatares

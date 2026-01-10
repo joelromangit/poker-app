@@ -1,38 +1,14 @@
-// Jugador permanente (tabla players)
-export interface Player {
-  id: string;
-  created_at: string;
-  name: string;
-  avatar_color: string;
-  avatar_url?: string; // URL de la foto de perfil
-  is_active: boolean;
-}
+// Import types from generated database types
+import type { Tables } from '../lib/database.types';
 
-// Jugador en una partida específica (tabla game_players)
-export interface GamePlayer {
-  id: string;
-  game_id: string;
-  player_id: string;
-  player: Player; // Datos del jugador
-  initial_chips: number;
-  final_chips: number;
-  rebuys: number; // Número de rebuys (compras adicionales de fichas)
-  profit: number;
-}
+export type Player = Tables<'players'>;
+export type GamePlayer = Tables<'game_players'> & {
+  player: Player;
+};
 
-// Partida
-export interface Game {
-  id: string;
-  created_at: string;
-  name?: string; // Nombre/título de la partida (ej: "Andorra 2022")
-  chip_value: number;
-  buy_in: number;
-  players: GamePlayer[];
-  total_pot: number;
-  notes?: string;
-  loser_photo_url?: string; // URL de la foto del perdedor
-  status: 'active' | 'completed';
-}
+export type Game = Tables<'games'> & {
+  game_players: GamePlayer[]; // Lista de jugadores con sus datos
+};
 
 // Resumen de partida para la lista
 export interface GameSummary {

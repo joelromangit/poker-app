@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
-import { getPlayers, createPlayer, updatePlayer, getAllPlayersStats } from '@/lib/players';
+import { getPlayers, createPlayer, updatePlayer, getAllPlayersStats, getAvatarColor } from '@/lib/players';
 import { Player, PlayerStats } from '@/types';
 import { 
   Users, 
@@ -124,8 +124,8 @@ export default function JugadoresPage() {
   const openEditModal = (player: Player) => {
     setEditingPlayer(player);
     setEditName(player.name);
-    setEditColor(player.avatar_color);
-    setEditAvatarUrl(player.avatar_url);
+    setEditColor(getAvatarColor(player.avatar_color));
+    setEditAvatarUrl(player.avatar_url || '');
     setError('');
   };
 
@@ -647,7 +647,7 @@ export default function JugadoresPage() {
                           ) : (
                             <div
                               className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-white font-bold text-base sm:text-lg flex-shrink-0 transition-opacity group-hover:opacity-70"
-                              style={{ backgroundColor: player.avatar_color }}
+                              style={{ backgroundColor: getAvatarColor(player.avatar_color) }}
                             >
                               {player.name.charAt(0).toUpperCase()}
                             </div>
@@ -790,7 +790,7 @@ export default function JugadoresPage() {
                             ) : (
                               <div
                                 className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-base flex-shrink-0 transition-opacity group-hover:opacity-70"
-                                style={{ backgroundColor: player.avatar_color }}
+                                style={{ backgroundColor: getAvatarColor(player.avatar_color) }}
                               >
                                 {player.name.charAt(0).toUpperCase()}
                               </div>
@@ -872,7 +872,7 @@ export default function JugadoresPage() {
                         isSpinning ? 'animate-pulse' : ''
                       }`}
                       style={{ 
-                        backgroundColor: gayPlayer.avatar_color,
+                        backgroundColor: getAvatarColor(gayPlayer.avatar_color),
                         ...(!isSpinning ? { animation: 'wiggle 1s ease-in-out infinite' } : {})
                       }}
                     >

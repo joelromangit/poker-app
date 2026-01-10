@@ -1,40 +1,23 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Database, Tables, TablesInsert, TablesUpdate } from './database.types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // Solo crear cliente si hay credenciales
-export const supabase: SupabaseClient | null = 
-  supabaseUrl && supabaseAnonKey 
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
+export const db: SupabaseClient<Database> = createClient<Database>(supabaseUrl, supabaseAnonKey)
 
-// Database types
-export interface DbPlayer {
-  id: string;
-  created_at: string;
-  name: string;
-  avatar_color: string;
-  is_active: boolean;
-}
+// Export types for convenience
+export type Player = Tables<'players'>;
+export type Game = Tables<'games'>;
+export type GamePlayer = Tables<'game_players'>;
 
-export interface DbGamePlayer {
-  id: string;
-  game_id: string;
-  player_id: string;
-  initial_chips: number;
-  final_chips: number;
-  profit: number;
-  players?: DbPlayer; // Join con players
-}
+// Insert types
+export type PlayerInsert = TablesInsert<'players'>;
+export type GameInsert = TablesInsert<'games'>;
+export type GamePlayerInsert = TablesInsert<'game_players'>;
 
-export interface DbGame {
-  id: string;
-  created_at: string;
-  chip_value: number;
-  buy_in: number;
-  total_pot: number;
-  notes: string | null;
-  status: 'active' | 'completed';
-  game_players?: DbGamePlayer[]; // Join con game_players
-}
+// Update types
+export type PlayerUpdate = TablesUpdate<'players'>;
+export type GameUpdate = TablesUpdate<'games'>;
+export type GamePlayerUpdate = TablesUpdate<'game_players'>;

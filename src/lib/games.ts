@@ -1,41 +1,8 @@
-import { supabase, DbGame, DbGamePlayer } from './supabase';
-import { Game, GamePlayer, GameSummary } from '@/types';
-
-// Verificar que Supabase está configurado
-function checkSupabase() {
-  if (!supabase) {
-    throw new Error('Supabase no está configurado. Añade las credenciales en .env.local');
-  }
-  return supabase;
-}
-
-// Obtener todas las partidas
-export async function getGames(): Promise<Game[]> {
-  const db = checkSupabase();
-
-  const { data, error } = await db
-    .from('games')
-    .select(`
-      *,
-      game_players (
-        *,
-        players (*)
-      )
-    `)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching games:', error);
-    return [];
-  }
-
-  return (data || []).map(mapDbGameToGame);
-}
+import { db } from './supabase';
+import { Game, GameSummary } from '@/types';
 
 // Obtener resumen de partidas para la lista
 export async function getGamesSummary(): Promise<GameSummary[]> {
-  const db = checkSupabase();
-
   // Obtener partidas con jugadores
   const { data, error } = await db
     .from('games')
@@ -56,22 +23,22 @@ export async function getGamesSummary(): Promise<GameSummary[]> {
     return [];
   }
 
-  return (data || []).map(game => {
+  return data.map(game => {
     const gamePlayers = game.game_players || [];
-    
+
     // Mejor resultado (mayor profit)
-    const topWinner = gamePlayers.reduce((prev: any, curr: any) => 
+    const topWinner = gamePlayers.reduce((prev: typeof gamePlayers[0] | null, curr: typeof gamePlayers[0]) =>
       (curr.profit > (prev?.profit || -Infinity)) ? curr : prev
-    , null);
+      , null);
 
     // Peor resultado (menor profit)
-    const worstLoser = gamePlayers.reduce((prev: any, curr: any) => 
+    const worstLoser = gamePlayers.reduce((prev: typeof gamePlayers[0] | null, curr: typeof gamePlayers[0]) =>
       (curr.profit < (prev?.profit || Infinity)) ? curr : prev
-    , null);
+      , null);
 
     // Lista de participantes
     const participants = gamePlayers
-      .map((gp: any) => gp.players?.name)
+      .map((gp: typeof gamePlayers[0]) => gp.players?.name)
       .filter((name: string | undefined): name is string => !!name);
 
     return {
@@ -91,15 +58,13 @@ export async function getGamesSummary(): Promise<GameSummary[]> {
 
 // Obtener una partida por ID
 export async function getGameById(id: string): Promise<Game | null> {
-  const db = checkSupabase();
-
   const { data, error } = await db
     .from('games')
     .select(`
       *,
       game_players (
         *,
-        players (*)
+        player:players (*)
       )
     `)
     .eq('id', id)
@@ -110,7 +75,7 @@ export async function getGameById(id: string): Promise<Game | null> {
     return null;
   }
 
-  return mapDbGameToGame(data);
+  return data;
 }
 
 // Crear una nueva partida
@@ -122,8 +87,6 @@ export async function createGame(
   gameDate?: Date,
   name?: string
 ): Promise<Game | null> {
-  const db = checkSupabase();
-
   // Calcular el bote total incluyendo rebuys
   // totalPot = Σ (buy_in × (1 + rebuys)) × chip_value
   const totalPot = players.reduce((sum, p) => {
@@ -157,7 +120,7 @@ export async function createGame(
     const totalChipsBought = buyIn * (1 + p.rebuys);
     // Profit = (fichas_finales - fichas_compradas) × valor_ficha
     const profit = (p.final_chips - totalChipsBought) * chipValue;
-    
+
     return {
       game_id: gameData.id,
       player_id: p.player_id,
@@ -193,8 +156,6 @@ export async function updateGame(
   gameDate?: Date,
   name?: string
 ): Promise<Game | null> {
-  const db = checkSupabase();
-
   // Calcular el bote total incluyendo rebuys
   const totalPot = players.reduce((sum, p) => {
     const totalChipsBought = buyIn * (1 + p.rebuys);
@@ -202,14 +163,14 @@ export async function updateGame(
   }, 0);
 
   // 1. Actualizar la partida
-  const updateData: any = {
+  const updateData: Partial<Game> = {
     name: name || null,
     chip_value: chipValue,
     buy_in: buyIn,
     total_pot: totalPot,
     notes: notes || null,
   };
-  
+
   if (gameDate) {
     updateData.created_at = gameDate.toISOString();
   }
@@ -239,7 +200,7 @@ export async function updateGame(
   const gamePlayers = players.map(p => {
     const totalChipsBought = buyIn * (1 + p.rebuys);
     const profit = (p.final_chips - totalChipsBought) * chipValue;
-    
+
     return {
       game_id: gameId,
       player_id: p.player_id,
@@ -265,8 +226,6 @@ export async function updateGame(
 
 // Eliminar una partida
 export async function deleteGame(id: string): Promise<boolean> {
-  const db = checkSupabase();
-
   // game_players se elimina automáticamente por ON DELETE CASCADE
   const { error } = await db
     .from('games')
@@ -281,44 +240,9 @@ export async function deleteGame(id: string): Promise<boolean> {
   return true;
 }
 
-// Mapear datos de DB a tipo Game
-function mapDbGameToGame(dbGame: any): Game {
-  const gamePlayers: GamePlayer[] = (dbGame.game_players || []).map((gp: any) => ({
-    id: gp.id,
-    game_id: gp.game_id,
-    player_id: gp.player_id,
-    player: gp.players ? {
-      id: gp.players.id,
-      created_at: gp.players.created_at,
-      name: gp.players.name,
-      avatar_color: gp.players.avatar_color,
-      avatar_url: gp.players.avatar_url || undefined,
-      is_active: gp.players.is_active,
-    } : null,
-    initial_chips: gp.initial_chips,
-    final_chips: gp.final_chips,
-    rebuys: gp.rebuys || 0,
-    profit: gp.profit,
-  }));
-
-  return {
-    id: dbGame.id,
-    created_at: dbGame.created_at,
-    name: dbGame.name || undefined,
-    chip_value: dbGame.chip_value,
-    buy_in: dbGame.buy_in,
-    players: gamePlayers,
-    total_pot: dbGame.total_pot,
-    notes: dbGame.notes || undefined,
-    loser_photo_url: dbGame.loser_photo_url || undefined,
-    status: dbGame.status,
-  };
-}
 
 // Actualizar foto del perdedor
 export async function updateGameLoserPhoto(gameId: string, loserPhotoUrl: string | null): Promise<boolean> {
-  const db = checkSupabase();
-
   const { error } = await db
     .from('games')
     .update({ loser_photo_url: loserPhotoUrl })

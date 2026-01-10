@@ -7,6 +7,7 @@ import Header from '@/components/Header';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { getGameById, deleteGame } from '@/lib/games';
 import { Game, GamePlayer } from '@/types';
+import { getAvatarColor } from '@/lib/players';
 import {
   ArrowLeft,
   Calendar,
@@ -166,8 +167,8 @@ export default function PartidaPage() {
 
   function generateShareText(game: Game): string {
     const date = new Date(game.created_at).toLocaleDateString('es-ES');
-    const sortedPlayers = [...game.players].sort((a, b) => b.profit - a.profit);
-    const totalRebuys = game.players.reduce((sum, gp) => sum + gp.rebuys, 0);
+    const sortedPlayers = [...game.game_players].sort((a, b) => b.profit - a.profit);
+    const totalRebuys = game.game_players.reduce((sum, gp) => sum + (gp.rebuys || 0), 0);
     
     let text = `🃏 Partida de Poker - ${date}\n`;
     text += `💰 Bote: ${game.total_pot.toFixed(2)}€`;
@@ -180,7 +181,7 @@ export default function PartidaPage() {
     sortedPlayers.forEach((gp, i) => {
       const emoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '•';
       const sign = gp.profit > 0 ? '+' : '';
-      const rebuyText = gp.rebuys > 0 ? ` (${gp.rebuys}R)` : '';
+      const rebuyText = (gp.rebuys || 0) > 0 ? ` (${gp.rebuys}R)` : '';
       text += `${emoji} ${gp.player.name}${rebuyText}: ${sign}${gp.profit.toFixed(2)}€\n`;
     });
     
@@ -224,8 +225,8 @@ export default function PartidaPage() {
       
       if (amount > 0.01) { // Ignorar cantidades muy pequeñas
         payments.push({
-          from: { name: debtor.player.name, avatar_color: debtor.player.avatar_color },
-          to: { name: creditor.player.name, avatar_color: creditor.player.avatar_color },
+          from: { name: debtor.player.name, avatar_color: getAvatarColor(debtor.player.avatar_color) },
+          to: { name: creditor.player.name, avatar_color: getAvatarColor(creditor.player.avatar_color) },
           amount: Math.round(amount * 100) / 100, // Redondear a 2 decimales
         });
       }
@@ -280,9 +281,9 @@ export default function PartidaPage() {
     minute: '2-digit',
   });
 
-  const sortedPlayers = [...game.players].sort((a, b) => b.profit - a.profit);
+  const sortedPlayers = game.game_players.sort((a, b) => b.profit - a.profit);
   const winner = sortedPlayers[0];
-  const totalRebuys = game.players.reduce((sum, gp) => sum + gp.rebuys, 0);
+  const totalRebuys = game.game_players.reduce((sum, gp) => sum + (gp.rebuys || 0), 0);
 
   return (
     <>
@@ -401,7 +402,7 @@ export default function PartidaPage() {
               </div>
               <div className="bg-background rounded-xl p-4 text-center">
                 <Users className="w-5 h-5 text-primary mx-auto mb-1" />
-                <p className="text-xl font-bold text-foreground">{game.players.length}</p>
+                <p className="text-xl font-bold text-foreground">{game.game_players.length}</p>
                 <p className="text-xs text-foreground-muted">Jugadores</p>
               </div>
               <div className="bg-background rounded-xl p-4 text-center">
@@ -424,15 +425,15 @@ export default function PartidaPage() {
                 {winner.player.avatar_url ? (
                   <img
                     src={winner.player.avatar_url}
-                    alt={winner.player.name}
+                    alt={winner.player.name || ''}
                     className="w-14 h-14 rounded-full object-cover"
                   />
                 ) : (
                   <div
                     className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold"
-                    style={{ backgroundColor: winner.player.avatar_color }}
+                    style={{ backgroundColor: getAvatarColor(winner.player.avatar_color) }}
                   >
-                    {winner.player.name.charAt(0).toUpperCase()}
+                    {winner.player.name?.charAt(0).toUpperCase() || '?'}
                   </div>
                 )}
                 <div className="flex-1">
@@ -491,15 +492,15 @@ export default function PartidaPage() {
                     {gp.player.avatar_url ? (
                       <img
                         src={gp.player.avatar_url}
-                        alt={gp.player.name}
+                        alt={gp.player.name || ''}
                         className="w-10 h-10 rounded-full object-cover"
                       />
                     ) : (
                       <div
                         className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-                        style={{ backgroundColor: gp.player.avatar_color }}
+                        style={{ backgroundColor: getAvatarColor(gp.player.avatar_color) }}
                       >
-                        {gp.player.name.charAt(0).toUpperCase()}
+                        {gp.player.name?.charAt(0).toUpperCase() || '?'}
                       </div>
                     )}
 
@@ -507,7 +508,7 @@ export default function PartidaPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-foreground truncate">{gp.player.name}</p>
-                        {gp.rebuys > 0 && (
+                        {(gp.rebuys || 0) > 0 && (
                           <span className="flex items-center gap-0.5 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full flex-shrink-0">
                             <RefreshCw className="w-3 h-3" />
                             {gp.rebuys}
@@ -615,7 +616,7 @@ export default function PartidaPage() {
 
           {/* Distribución de pagos */}
           {(() => {
-            const payments = calculatePayments(game.players);
+            const payments = calculatePayments(game.game_players);
             if (payments.length === 0) return null;
             
             return (
