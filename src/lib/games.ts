@@ -10,6 +10,7 @@ export async function getGamesSummary(): Promise<GameSummary[]> {
       id,
       created_at,
       name,
+      status,
       total_pot,
       game_players (
         profit,
@@ -45,6 +46,7 @@ export async function getGamesSummary(): Promise<GameSummary[]> {
       id: game.id,
       created_at: game.created_at,
       name: game.name || undefined,
+      status: (game.status === 'in_progress' ? 'in_progress' : 'completed') as 'in_progress' | 'completed',
       player_count: gamePlayers.length,
       total_pot: game.total_pot,
       top_winner: topWinner?.players?.name || '-',
@@ -146,7 +148,65 @@ export async function createGame(
   return getGameById(gameData.id);
 }
 
+// Crear un borrador de partida (sin fichas finales)
+export async function createGameDraft(
+  chipValue: number,
+  buyIn: number,
+  playerIds: string[],
+  notes?: string,
+  gameDate?: Date,
+  name?: string
+): Promise<string | null> {
+  // El bote inicial es el buy-in de cada jugador (sin rebuys)
+  const totalPot = playerIds.length * buyIn * chipValue;
+
+  // 1. Crear la partida con status 'in_progress'
+  const { data: gameData, error: gameError } = await db
+    .from('games')
+    .insert({
+      name: name || null,
+      chip_value: chipValue,
+      buy_in: buyIn,
+      total_pot: totalPot,
+      notes: notes || null,
+      status: 'in_progress',
+      created_at: gameDate ? gameDate.toISOString() : new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  if (gameError || !gameData) {
+    console.error('Error creating game draft:', gameError);
+    return null;
+  }
+
+  // 2. Crear los game_players con fichas finales en 0
+  const gamePlayers = playerIds.map(playerId => ({
+    game_id: gameData.id,
+    player_id: playerId,
+    initial_chips: buyIn,
+    final_chips: 0,
+    rebuys: 0,
+    profit: 0,
+  }));
+
+  const { error: playersError } = await db
+    .from('game_players')
+    .insert(gamePlayers);
+
+  if (playersError) {
+    console.error('Error creating game_players for draft:', playersError);
+    // Rollback: eliminar la partida creada
+    await db.from('games').delete().eq('id', gameData.id);
+    return null;
+  }
+
+  // Retornar solo el ID para la redirección
+  return gameData.id;
+}
+
 // Actualizar una partida existente
+// status: 'in_progress' para guardar como borrador, 'completed' para completar
 export async function updateGame(
   gameId: string,
   chipValue: number,
@@ -154,7 +214,8 @@ export async function updateGame(
   players: { player_id: string; final_chips: number; rebuys: number }[],
   notes?: string,
   gameDate?: Date,
-  name?: string
+  name?: string,
+  status: 'in_progress' | 'completed' = 'completed'
 ): Promise<Game | null> {
   // Calcular el bote total incluyendo rebuys
   const totalPot = players.reduce((sum, p) => {
@@ -169,6 +230,7 @@ export async function updateGame(
     buy_in: buyIn,
     total_pot: totalPot,
     notes: notes || null,
+    status: status,
   };
 
   if (gameDate) {

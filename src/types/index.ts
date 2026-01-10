@@ -15,6 +15,7 @@ export interface GameSummary {
   id: string;
   created_at: string;
   name?: string; // Nombre/título de la partida
+  status: 'in_progress' | 'completed'; // Estado de la partida
   player_count: number;
   total_pot: number;
   top_winner: string;
