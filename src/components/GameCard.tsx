@@ -1,8 +1,15 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { Calendar, Users, Trophy, TrendingUp, TrendingDown, Frown } from 'lucide-react';
-import { GameSummary } from '@/types';
+import {
+  Calendar,
+  Frown,
+  TrendingDown,
+  TrendingUp,
+  Trophy,
+  Users,
+} from "lucide-react";
+import Link from "next/link";
+import type { GameSummary } from "@/types";
 
 interface GameCardProps {
   game: GameSummary;
@@ -11,14 +18,14 @@ interface GameCardProps {
 
 export default function GameCard({ game, index }: GameCardProps) {
   const date = new Date(game.created_at);
-  const formattedDate = date.toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
+  const formattedDate = date.toLocaleDateString("es-ES", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   });
-  const formattedTime = date.toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
+  const formattedTime = date.toLocaleTimeString("es-ES", {
+    hour: "2-digit",
+    minute: "2-digit",
   });
 
   // Proteger contra valores null/undefined
@@ -29,7 +36,7 @@ export default function GameCard({ game, index }: GameCardProps) {
 
   return (
     <Link href={`/partida/${game.id}`}>
-      <div 
+      <div
         className="card-hover bg-background-card rounded-2xl p-5 border border-border hover:border-primary/50 cursor-pointer animate-fade-in"
         style={{ animationDelay: `${index * 0.05}s` }}
       >
@@ -62,13 +69,18 @@ export default function GameCard({ game, index }: GameCardProps) {
             </div>
             <div>
               <p className="text-xs text-foreground-muted">Mejor resultado</p>
-              <p className="font-medium text-foreground">{game.top_winner || '-'}</p>
+              <p className="font-medium text-foreground">
+                {game.top_winner || "-"}
+              </p>
             </div>
           </div>
-          <div className={`flex items-center gap-1 ${isWinner ? 'text-success' : 'text-foreground-muted'}`}>
+          <div
+            className={`flex items-center gap-1 ${isWinner ? "text-success" : "text-foreground-muted"}`}
+          >
             {isWinner && <TrendingUp className="w-4 h-4" />}
             <span className="font-bold">
-              {isWinner ? '+' : ''}{topWinnerProfit.toFixed(2)}€
+              {isWinner ? "+" : ""}
+              {topWinnerProfit.toFixed(2)}€
             </span>
           </div>
         </div>
@@ -81,14 +93,16 @@ export default function GameCard({ game, index }: GameCardProps) {
             </div>
             <div>
               <p className="text-xs text-foreground-muted">Peor resultado</p>
-              <p className="font-medium text-foreground">{game.worst_loser || '-'}</p>
+              <p className="font-medium text-foreground">
+                {game.worst_loser || "-"}
+              </p>
             </div>
           </div>
-          <div className={`flex items-center gap-1 ${isLoser ? 'text-danger' : 'text-foreground-muted'}`}>
+          <div
+            className={`flex items-center gap-1 ${isLoser ? "text-danger" : "text-foreground-muted"}`}
+          >
             {isLoser && <TrendingDown className="w-4 h-4" />}
-            <span className="font-bold">
-              {worstLoserProfit.toFixed(2)}€
-            </span>
+            <span className="font-bold">{worstLoserProfit.toFixed(2)}€</span>
           </div>
         </div>
       </div>

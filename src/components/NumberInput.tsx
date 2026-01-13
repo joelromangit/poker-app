@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 interface NumberInputProps {
   value: string;
@@ -20,11 +20,12 @@ export default function NumberInput({
   min,
   max,
   placeholder,
-  className = '',
+  className = "",
   icon,
 }: NumberInputProps) {
   // Determinar decimales basado en el step
-  const decimals = step < 1 ? Math.max(2, String(step).split('.')[1]?.length || 0) : 0;
+  const decimals =
+    step < 1 ? Math.max(2, String(step).split(".")[1]?.length || 0) : 0;
 
   const increment = () => {
     const current = parseFloat(value) || 0;
@@ -54,7 +55,7 @@ export default function NumberInput({
         inputMode="decimal"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full ${icon ? 'pl-10' : 'pl-4'} pr-12 py-3 rounded-xl text-foreground bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all`}
+        className={`w-full ${icon ? "pl-10" : "pl-4"} pr-12 py-3 rounded-xl text-foreground bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all`}
         placeholder={placeholder}
       />
       <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col">
@@ -76,4 +77,3 @@ export default function NumberInput({
     </div>
   );
 }
-

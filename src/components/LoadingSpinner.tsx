@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 export default function LoadingSpinner() {
   return (
@@ -12,4 +12,3 @@ export default function LoadingSpinner() {
     </div>
   );
 }
-

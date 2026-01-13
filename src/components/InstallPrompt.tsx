@@ -1,15 +1,16 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Download, X, Share, Plus, Smartphone } from 'lucide-react';
+import { Download, Plus, Share, Smartphone, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
 export default function InstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
   const [showIOSInstructions, setShowIOSInstructions] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -17,16 +18,18 @@ export default function InstallPrompt() {
 
   useEffect(() => {
     // Verificar si ya está instalada como PWA
-    const standalone = window.matchMedia('(display-mode: standalone)').matches 
-      || (window.navigator as any).standalone === true;
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as any).standalone === true;
     setIsStandalone(standalone);
 
     // Detectar iOS
-    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const iOS =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setIsIOS(iOS);
 
     // Verificar si el usuario ya descartó el prompt
-    const wasDismissed = localStorage.getItem('pwa-install-dismissed');
+    const wasDismissed = localStorage.getItem("pwa-install-dismissed");
     if (wasDismissed) {
       setDismissed(true);
     }
@@ -37,10 +40,10 @@ export default function InstallPrompt() {
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
     };
   }, []);
 
@@ -49,7 +52,7 @@ export default function InstallPrompt() {
       // Android/Desktop - usar el prompt nativo
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
+      if (outcome === "accepted") {
         setDeferredPrompt(null);
       }
     } else if (isIOS) {
@@ -60,7 +63,7 @@ export default function InstallPrompt() {
 
   const handleDismiss = () => {
     setDismissed(true);
-    localStorage.setItem('pwa-install-dismissed', 'true');
+    localStorage.setItem("pwa-install-dismissed", "true");
   };
 
   // No mostrar si ya está instalada, ya se descartó, o no hay opción de instalar
@@ -90,8 +93,12 @@ export default function InstallPrompt() {
                   <Smartphone className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-foreground">Instalar Poker Nights</h2>
-                  <p className="text-sm text-foreground-muted">en tu iPhone/iPad</p>
+                  <h2 className="text-lg font-bold text-foreground">
+                    Instalar Poker Nights
+                  </h2>
+                  <p className="text-sm text-foreground-muted">
+                    en tu iPhone/iPad
+                  </p>
                 </div>
               </div>
               <button
@@ -108,7 +115,9 @@ export default function InstallPrompt() {
                   1
                 </div>
                 <div>
-                  <p className="font-medium text-foreground">Toca el botón Compartir</p>
+                  <p className="font-medium text-foreground">
+                    Toca el botón Compartir
+                  </p>
                   <p className="text-sm text-foreground-muted flex items-center gap-1">
                     <Share className="w-4 h-4" /> en la barra de Safari
                   </p>
@@ -120,7 +129,9 @@ export default function InstallPrompt() {
                   2
                 </div>
                 <div>
-                  <p className="font-medium text-foreground">Selecciona "Añadir a pantalla de inicio"</p>
+                  <p className="font-medium text-foreground">
+                    Selecciona "Añadir a pantalla de inicio"
+                  </p>
                   <p className="text-sm text-foreground-muted flex items-center gap-1">
                     <Plus className="w-4 h-4" /> en el menú
                   </p>
@@ -133,7 +144,9 @@ export default function InstallPrompt() {
                 </div>
                 <div>
                   <p className="font-medium text-foreground">Toca "Añadir"</p>
-                  <p className="text-sm text-foreground-muted">¡Y listo! Ya tienes la app</p>
+                  <p className="text-sm text-foreground-muted">
+                    ¡Y listo! Ya tienes la app
+                  </p>
                 </div>
               </div>
             </div>
@@ -153,22 +166,25 @@ export default function InstallPrompt() {
 
 // Componente separado para el banner de instalación (opcional, para mostrar en home)
 export function InstallBanner() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
   const [showBanner, setShowBanner] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [showIOSModal, setShowIOSModal] = useState(false);
 
   useEffect(() => {
     // Verificar si ya está instalada
-    const standalone = window.matchMedia('(display-mode: standalone)').matches 
-      || (window.navigator as any).standalone === true;
-    
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as any).standalone === true;
+
     if (standalone) return;
 
     // Verificar si ya se mostró recientemente
-    const lastShown = localStorage.getItem('pwa-banner-shown');
+    const lastShown = localStorage.getItem("pwa-banner-shown");
     if (lastShown) {
-      const daysSince = (Date.now() - parseInt(lastShown)) / (1000 * 60 * 60 * 24);
+      const daysSince =
+        (Date.now() - parseInt(lastShown)) / (1000 * 60 * 60 * 24);
       if (daysSince < 7) return; // No mostrar si se mostró hace menos de 7 días
     }
 
@@ -189,26 +205,27 @@ export function InstallBanner() {
       setTimeout(() => setShowBanner(true), 2000);
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+    return () =>
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
   }, []);
 
   const handleInstall = async () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
+      if (outcome === "accepted") {
         setShowBanner(false);
       }
     } else if (isIOS) {
       setShowIOSModal(true);
     }
-    localStorage.setItem('pwa-banner-shown', Date.now().toString());
+    localStorage.setItem("pwa-banner-shown", Date.now().toString());
   };
 
   const handleDismiss = () => {
     setShowBanner(false);
-    localStorage.setItem('pwa-banner-shown', Date.now().toString());
+    localStorage.setItem("pwa-banner-shown", Date.now().toString());
   };
 
   if (!showBanner) return null;
@@ -222,17 +239,21 @@ export function InstallBanner() {
         >
           <X className="w-4 h-4" />
         </button>
-        
+
         <div className="flex items-center gap-3 mb-3">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-emerald-700 flex items-center justify-center flex-shrink-0">
             <Smartphone className="w-6 h-6 text-white" />
           </div>
           <div>
-            <p className="font-semibold text-foreground">Instalar Poker Nights</p>
-            <p className="text-xs text-foreground-muted">Acceso rápido desde tu pantalla</p>
+            <p className="font-semibold text-foreground">
+              Instalar Poker Nights
+            </p>
+            <p className="text-xs text-foreground-muted">
+              Acceso rápido desde tu pantalla
+            </p>
           </div>
         </div>
-        
+
         <button
           onClick={handleInstall}
           className="w-full py-2.5 rounded-xl bg-accent text-white font-medium flex items-center justify-center gap-2"
@@ -248,7 +269,8 @@ export function InstallBanner() {
           <div className="bg-background-card rounded-t-2xl p-6 w-full max-w-md">
             <h3 className="text-lg font-bold mb-4">Instalar en iOS</h3>
             <p className="text-foreground-muted mb-4">
-              Toca <Share className="w-4 h-4 inline" /> en Safari → "Añadir a pantalla de inicio"
+              Toca <Share className="w-4 h-4 inline" /> en Safari → "Añadir a
+              pantalla de inicio"
             </p>
             <button
               onClick={() => setShowIOSModal(false)}
@@ -262,4 +284,3 @@ export function InstallBanner() {
     </>
   );
 }
-
