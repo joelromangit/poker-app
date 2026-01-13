@@ -141,7 +141,7 @@ export function EditPlayerModal({
           <div className="flex justify-center mb-6">
             <div className="relative group">
               {avatarUrl ? (
-                <Image
+                <img
                   src={avatarUrl}
                   alt={name}
                   width={96}
