@@ -1,14 +1,6 @@
 import { db } from "./supabase";
 
-// Raw data from the PostgreSQL function
-export interface RankingEvolutionRow {
-  week_start: string;
-  player_id: string;
-  player_name: string;
-  avatar_color: string;
-  cumulative_balance: number;
-  rank: number;
-}
+export type IntervalType = "month" | "year";
 
 // Player info for the chart legend and styling
 export interface PlayerChartInfo {
@@ -17,10 +9,10 @@ export interface PlayerChartInfo {
   color: string;
 }
 
-// Data point for Recharts - one object per week with player names as keys
+// Data point for Recharts - one object per period with player names as keys
 export interface ChartDataPoint {
-  week: string;
-  weekLabel: string;
+  period: string;
+  periodLabel: string;
   [playerName: string]: number | string; // rank values keyed by player name
 }
 
@@ -32,11 +24,29 @@ export interface RankingChartData {
 }
 
 /**
+ * Formats a date label based on the interval type
+ */
+function formatPeriodLabel(date: Date, intervalType: IntervalType): string {
+  if (intervalType === "year") {
+    return date.getFullYear().toString();
+  }
+  // Monthly: "Ene 26" format
+  return date.toLocaleDateString("es-ES", {
+    month: "short",
+    year: "2-digit",
+  });
+}
+
+/**
  * Fetches ranking evolution data from Supabase and transforms it
  * into a format suitable for Recharts LineChart
  */
-export async function getRankingEvolution(): Promise<RankingChartData | null> {
-  const { data, error } = await db.rpc("get_ranking_evolution");
+export async function getRankingEvolution(
+  intervalType: IntervalType = "month"
+): Promise<RankingChartData | null> {
+  const { data, error } = await db.rpc("get_ranking_evolution", {
+    interval_type: intervalType,
+  });
 
   if (error) {
     console.error("Error fetching ranking evolution:", error);
@@ -58,17 +68,17 @@ export async function getRankingEvolution(): Promise<RankingChartData | null> {
   }
   const players = Array.from(playersMap.values());
 
-  // Group data by week
-  const weekMap = new Map<string, Map<string, number>>();
+  // Group data by period
+  const periodMap = new Map<string, Map<string, number>>();
   let maxRank = 1;
 
   for (const row of rows) {
-    if (!weekMap.has(row.week_start)) {
-      weekMap.set(row.week_start, new Map());
+    if (!periodMap.has(row.period_start)) {
+      periodMap.set(row.period_start, new Map());
     }
-    const weekData = weekMap.get(row.week_start);
-    if (weekData) {
-      weekData.set(row.player_name, row.rank);
+    const periodData = periodMap.get(row.period_start);
+    if (periodData) {
+      periodData.set(row.player_name, row.rank);
     }
     if (row.rank > maxRank) {
       maxRank = row.rank;
@@ -77,29 +87,24 @@ export async function getRankingEvolution(): Promise<RankingChartData | null> {
 
   // Convert to Recharts format
   const dataPoints: ChartDataPoint[] = [];
-  const sortedWeeks = Array.from(weekMap.keys()).sort();
+  const sortedPeriods = Array.from(periodMap.keys()).sort();
 
-  for (const week of sortedWeeks) {
-    const weekData = weekMap.get(week);
-    if (!weekData) {
+  for (const period of sortedPeriods) {
+    const periodData = periodMap.get(period);
+    if (!periodData) {
       continue;
     }
-    const date = new Date(week);
-
-    // Format: "Jan 13" or "13 Ene" for Spanish
-    const weekLabel = date.toLocaleDateString("es-ES", {
-      month: "short",
-      day: "numeric",
-    });
+    const date = new Date(period);
+    const periodLabel = formatPeriodLabel(date, intervalType);
 
     const point: ChartDataPoint = {
-      week,
-      weekLabel,
+      period,
+      periodLabel,
     };
 
     // Add rank for each player
     for (const player of players) {
-      point[player.name] = weekData.get(player.name) ?? maxRank;
+      point[player.name] = periodData.get(player.name) ?? maxRank;
     }
 
     dataPoints.push(point);
