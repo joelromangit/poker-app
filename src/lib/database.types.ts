@@ -136,17 +136,29 @@ export type Database = {
           total_pot: number
         }[]
       }
-      get_ranking_evolution: {
-        Args: never
-        Returns: {
-          avatar_color: string
-          cumulative_balance: number
-          player_id: string
-          player_name: string
-          rank: number
-          week_start: string
-        }[]
-      }
+      get_ranking_evolution:
+        | {
+            Args: never
+            Returns: {
+              avatar_color: string
+              cumulative_balance: number
+              player_id: string
+              player_name: string
+              rank: number
+              week_start: string
+            }[]
+          }
+        | {
+            Args: { interval_type?: string }
+            Returns: {
+              avatar_color: string
+              cumulative_balance: number
+              period_start: string
+              player_id: string
+              player_name: string
+              rank: number
+            }[]
+          }
     }
     Enums: {
       [_ in never]: never

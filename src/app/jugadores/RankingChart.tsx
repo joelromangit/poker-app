@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, TrendingUp } from "lucide-react";
+import { Calendar, CalendarDays, Loader2, TrendingUp } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
   Line,
@@ -13,6 +13,7 @@ import {
 import {
   type ChartDataPoint,
   getRankingEvolution,
+  type IntervalType,
   type PlayerChartInfo,
   type RankingChartData,
 } from "@/lib/rankingChart";
@@ -205,16 +206,55 @@ function RightLabels({
   );
 }
 
+// Interval toggle button component
+function IntervalToggle({
+  interval,
+  onChange,
+}: {
+  interval: IntervalType;
+  onChange: (interval: IntervalType) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 bg-background rounded-lg p-1">
+      <button
+        type="button"
+        onClick={() => onChange("month")}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+          interval === "month"
+            ? "bg-primary text-primary-foreground"
+            : "text-foreground-muted hover:text-foreground hover:bg-background-elevated"
+        }`}
+      >
+        <CalendarDays className="w-4 h-4" />
+        <span className="hidden sm:inline">Mensual</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("year")}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+          interval === "year"
+            ? "bg-primary text-primary-foreground"
+            : "text-foreground-muted hover:text-foreground hover:bg-background-elevated"
+        }`}
+      >
+        <Calendar className="w-4 h-4" />
+        <span className="hidden sm:inline">Anual</span>
+      </button>
+    </div>
+  );
+}
+
 export default function RankingChart() {
   const [chartData, setChartData] = useState<RankingChartData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [interval, setInterval] = useState<IntervalType>("month");
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (intervalType: IntervalType) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getRankingEvolution();
+      const data = await getRankingEvolution(intervalType);
       setChartData(data);
     } catch (err) {
       console.error("Error loading ranking chart:", err);
@@ -224,14 +264,32 @@ export default function RankingChart() {
   }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadData(interval);
+  }, [loadData, interval]);
+
+  const handleIntervalChange = (newInterval: IntervalType) => {
+    setInterval(newInterval);
+  };
 
   const chartHeight = 400;
+
+  const emptyStateMessage =
+    interval === "month"
+      ? "Se necesitan al menos 2 meses de partidas"
+      : "Se necesitan al menos 2 años de partidas";
 
   if (loading) {
     return (
       <div className="bg-background-card rounded-2xl border border-border p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-accent" />
+            <h2 className="text-lg font-semibold text-foreground">
+              Evolución del Ranking
+            </h2>
+          </div>
+          <IntervalToggle interval={interval} onChange={handleIntervalChange} />
+        </div>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -242,6 +300,15 @@ export default function RankingChart() {
   if (error) {
     return (
       <div className="bg-background-card rounded-2xl border border-border p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-accent" />
+            <h2 className="text-lg font-semibold text-foreground">
+              Evolución del Ranking
+            </h2>
+          </div>
+          <IntervalToggle interval={interval} onChange={handleIntervalChange} />
+        </div>
         <div className="flex items-center justify-center h-64 text-danger">
           {error}
         </div>
@@ -252,10 +319,19 @@ export default function RankingChart() {
   if (!chartData || chartData.dataPoints.length < 2) {
     return (
       <div className="bg-background-card rounded-2xl border border-border p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-accent" />
+            <h2 className="text-lg font-semibold text-foreground">
+              Evolución del Ranking
+            </h2>
+          </div>
+          <IntervalToggle interval={interval} onChange={handleIntervalChange} />
+        </div>
         <div className="flex flex-col items-center justify-center h-64 text-foreground-muted">
           <TrendingUp className="w-12 h-12 mb-3 opacity-50" />
           <p>No hay suficientes datos para mostrar el gráfico</p>
-          <p className="text-sm">Se necesitan al menos 2 semanas de partidas</p>
+          <p className="text-sm">{emptyStateMessage}</p>
         </div>
       </div>
     );
@@ -266,11 +342,14 @@ export default function RankingChart() {
   return (
     <div className="bg-background-card rounded-2xl border border-border p-4 sm:p-6">
       {/* Header */}
-      <div className="flex items-center gap-2 mb-4">
-        <TrendingUp className="w-5 h-5 text-accent" />
-        <h2 className="text-lg font-semibold text-foreground">
-          Evolución del Ranking
-        </h2>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-accent" />
+          <h2 className="text-lg font-semibold text-foreground">
+            Evolución del Ranking
+          </h2>
+        </div>
+        <IntervalToggle interval={interval} onChange={handleIntervalChange} />
       </div>
 
       {/* Chart container with side labels */}
@@ -305,7 +384,7 @@ export default function RankingChart() {
               ))}
 
               <XAxis
-                dataKey="weekLabel"
+                dataKey="periodLabel"
                 axisLine={{ stroke: "var(--border)" }}
                 tickLine={{ stroke: "var(--border)" }}
                 tick={{ fill: "var(--foreground-muted)", fontSize: 11 }}
