@@ -440,7 +440,7 @@ function PlayerRankingCard({
           title="Editar jugador"
         >
           {player.avatar_url ? (
-            <Image
+            <img
               src={player.avatar_url}
               alt={player.name}
               className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover flex-shrink-0 transition-opacity group-hover:opacity-70"
@@ -616,7 +616,7 @@ function PlayerWithoutGamesCard({
           title="Editar jugador"
         >
           {player.avatar_url ? (
-            <Image
+            <img
               src={player.avatar_url}
               alt={player.name}
               className="w-10 h-10 rounded-full object-cover flex-shrink-0 transition-opacity group-hover:opacity-70"
