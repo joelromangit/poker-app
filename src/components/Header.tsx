@@ -1,16 +1,14 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Spade, Users, Plus } from 'lucide-react';
-import InstallPrompt from './InstallPrompt';
+import { Plus, Spade, Users } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import InstallPrompt from "./InstallPrompt";
 
 export default function Header() {
   const pathname = usePathname();
 
-  const navLinks = [
-    { href: '/jugadores', label: 'Jugadores', icon: Users },
-  ];
+  const navLinks = [{ href: "/jugadores", label: "Jugadores", icon: Users }];
 
   return (
     <header className="sticky top-0 z-50 bg-background-secondary/80 backdrop-blur-lg border-b border-border">
@@ -24,15 +22,19 @@ export default function Header() {
               <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-accent animate-pulse" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-foreground">Poker Nights</h1>
-              <p className="text-xs text-foreground-muted hidden sm:block">Gestión de partidas</p>
+              <h1 className="text-lg font-bold text-foreground">
+                Poker Nights
+              </h1>
+              <p className="text-xs text-foreground-muted hidden sm:block">
+                Gestión de partidas
+              </p>
             </div>
           </Link>
-          
+
           <nav className="flex items-center gap-2 sm:gap-3">
             {/* Botón de instalar PWA */}
             <InstallPrompt />
-            
+
             {navLinks.map(({ href, label, icon: Icon }) => {
               const isActive = pathname === href;
               return (
@@ -40,9 +42,9 @@ export default function Header() {
                   key={href}
                   href={href}
                   className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${
-                    isActive 
-                      ? 'bg-primary/10 text-primary' 
-                      : 'text-foreground-muted hover:text-foreground hover:bg-background'
+                    isActive
+                      ? "bg-primary/10 text-primary"
+                      : "text-foreground-muted hover:text-foreground hover:bg-background"
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -50,7 +52,7 @@ export default function Header() {
                 </Link>
               );
             })}
-            
+
             <Link
               href="/nueva-partida"
               className="btn-primary px-3 sm:px-4 py-2 rounded-lg text-white font-medium text-sm flex items-center gap-2"

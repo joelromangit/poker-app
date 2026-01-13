@@ -7,31 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       game_players: {
@@ -88,6 +63,7 @@ export type Database = {
           loser_photo_url: string | null
           name: string | null
           notes: string | null
+          players: Json
           status: string
           total_pot: number
         }
@@ -99,6 +75,7 @@ export type Database = {
           loser_photo_url?: string | null
           name?: string | null
           notes?: string | null
+          players?: Json
           status?: string
           total_pot?: number
         }
@@ -110,225 +87,64 @@ export type Database = {
           loser_photo_url?: string | null
           name?: string | null
           notes?: string | null
+          players?: Json
           status?: string
           total_pot?: number
         }
         Relationships: []
       }
-      live_players: {
-        Row: {
-          current_chips: number
-          current_profit: number
-          id: string
-          is_active: boolean
-          is_on_break: boolean
-          joined_at: string
-          left_at: string | null
-          player_id: string
-          session_id: string
-          table_position: number | null
-          total_buy_in: number
-          total_rebuys: number
-        }
-        Insert: {
-          current_chips: number
-          current_profit?: number
-          id?: string
-          is_active?: boolean
-          is_on_break?: boolean
-          joined_at?: string
-          left_at?: string | null
-          player_id: string
-          session_id: string
-          table_position?: number | null
-          total_buy_in?: number
-          total_rebuys?: number
-        }
-        Update: {
-          current_chips?: number
-          current_profit?: number
-          id?: string
-          is_active?: boolean
-          is_on_break?: boolean
-          joined_at?: string
-          left_at?: string | null
-          player_id?: string
-          session_id?: string
-          table_position?: number | null
-          total_buy_in?: number
-          total_rebuys?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "live_players_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "players"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "live_players_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "live_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      live_sessions: {
-        Row: {
-          buy_in: number
-          chip_value: number
-          created_at: string
-          current_hand: number
-          ended_at: string | null
-          game_id: string | null
-          id: string
-          name: string | null
-          notes: string | null
-          started_at: string
-          status: string
-          total_duration_seconds: number
-        }
-        Insert: {
-          buy_in: number
-          chip_value: number
-          created_at?: string
-          current_hand?: number
-          ended_at?: string | null
-          game_id?: string | null
-          id?: string
-          name?: string | null
-          notes?: string | null
-          started_at?: string
-          status?: string
-          total_duration_seconds?: number
-        }
-        Update: {
-          buy_in?: number
-          chip_value?: number
-          created_at?: string
-          current_hand?: number
-          ended_at?: string | null
-          game_id?: string | null
-          id?: string
-          name?: string | null
-          notes?: string | null
-          started_at?: string
-          status?: string
-          total_duration_seconds?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "live_sessions_game_id_fkey"
-            columns: ["game_id"]
-            isOneToOne: false
-            referencedRelation: "games"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       players: {
         Row: {
-          avatar_color: string | null
+          avatar_color: string
           avatar_url: string | null
           created_at: string
           id: string
-          is_active: boolean | null
+          is_active: boolean
           name: string
         }
         Insert: {
-          avatar_color?: string | null
+          avatar_color?: string
           avatar_url?: string | null
           created_at?: string
           id?: string
-          is_active?: boolean | null
+          is_active?: boolean
           name: string
         }
         Update: {
-          avatar_color?: string | null
+          avatar_color?: string
           avatar_url?: string | null
           created_at?: string
           id?: string
-          is_active?: boolean | null
+          is_active?: boolean
           name?: string
         }
         Relationships: []
-      }
-      session_events: {
-        Row: {
-          created_at: string
-          event_data: Json | null
-          event_type: string
-          id: string
-          player_id: string | null
-          session_id: string
-        }
-        Insert: {
-          created_at?: string
-          event_data?: Json | null
-          event_type: string
-          id?: string
-          player_id?: string | null
-          session_id: string
-        }
-        Update: {
-          created_at?: string
-          event_data?: Json | null
-          event_type?: string
-          id?: string
-          player_id?: string | null
-          session_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "session_events_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "players"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "session_events_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "live_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      create_live_session_from_game: {
-        Args: { p_game_id: string; p_session_name?: string }
-        Returns: string
-      }
-      get_live_session_stats: {
-        Args: { p_session_id: string }
+      get_games_summary: {
+        Args: never
         Returns: {
-          active_players: number
-          avg_profit_per_player: number
-          hands_per_hour: number
-          session_duration_seconds: number
-          total_players: number
+          created_at: string
+          id: string
+          player_count: number
+          top_winner: string
+          top_winner_profit: number
           total_pot: number
-          total_rebuys: number
         }[]
       }
-      get_player_stats: {
-        Args: { p_player_id: string }
+      get_ranking_evolution: {
+        Args: never
         Returns: {
-          average_per_game: number
-          best_game: number
-          losses: number
-          total_balance: number
-          total_games: number
-          win_rate: number
-          wins: number
-          worst_game: number
+          avatar_color: string
+          cumulative_balance: number
+          player_id: string
+          player_name: string
+          rank: number
+          week_start: string
         }[]
       }
     }
@@ -459,9 +275,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

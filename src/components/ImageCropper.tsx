@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import { useState, useCallback } from 'react';
-import Cropper, { Area } from 'react-easy-crop';
-import { X, Check, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
+import { Check, RotateCw, X, ZoomIn, ZoomOut } from "lucide-react";
+import { useCallback, useState } from "react";
+import Cropper, { type Area } from "react-easy-crop";
 
 interface ImageCropperProps {
   image: string;
   onCropComplete: (croppedImage: File) => void;
   onCancel: () => void;
   aspectRatio?: number;
-  cropShape?: 'rect' | 'round';
+  cropShape?: "rect" | "round";
 }
 
 export default function ImageCropper({
@@ -17,7 +17,7 @@ export default function ImageCropper({
   onCropComplete,
   onCancel,
   aspectRatio = 1,
-  cropShape = 'round',
+  cropShape = "round",
 }: ImageCropperProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -32,9 +32,12 @@ export default function ImageCropper({
     setZoom(newZoom);
   }, []);
 
-  const onCropAreaComplete = useCallback((_croppedArea: Area, croppedAreaPixels: Area) => {
-    setCroppedAreaPixels(croppedAreaPixels);
-  }, []);
+  const onCropAreaComplete = useCallback(
+    (_croppedArea: Area, croppedAreaPixels: Area) => {
+      setCroppedAreaPixels(croppedAreaPixels);
+    },
+    [],
+  );
 
   const createCroppedImage = async (): Promise<File | null> => {
     if (!croppedAreaPixels) return null;
@@ -44,8 +47,8 @@ export default function ImageCropper({
 
     return new Promise((resolve) => {
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
         if (!ctx) {
           resolve(null);
           return;
@@ -57,8 +60,8 @@ export default function ImageCropper({
 
         // Aplicar rotación si es necesario
         if (rotation !== 0) {
-          const tempCanvas = document.createElement('canvas');
-          const tempCtx = tempCanvas.getContext('2d');
+          const tempCanvas = document.createElement("canvas");
+          const tempCtx = tempCanvas.getContext("2d");
           if (!tempCtx) {
             resolve(null);
             return;
@@ -89,7 +92,7 @@ export default function ImageCropper({
             0,
             0,
             croppedAreaPixels.width,
-            croppedAreaPixels.height
+            croppedAreaPixels.height,
           );
         } else {
           // Sin rotación, recortar directamente
@@ -102,7 +105,7 @@ export default function ImageCropper({
             0,
             0,
             croppedAreaPixels.width,
-            croppedAreaPixels.height
+            croppedAreaPixels.height,
           );
         }
 
@@ -110,14 +113,16 @@ export default function ImageCropper({
         canvas.toBlob(
           (blob) => {
             if (blob) {
-              const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+              const file = new File([blob], "avatar.jpg", {
+                type: "image/jpeg",
+              });
               resolve(file);
             } else {
               resolve(null);
             }
           },
-          'image/jpeg',
-          0.9
+          "image/jpeg",
+          0.9,
         );
       };
 
@@ -142,7 +147,9 @@ export default function ImageCropper({
         >
           <X className="w-6 h-6" />
         </button>
-        <h2 className="text-lg font-semibold text-foreground">Recortar imagen</h2>
+        <h2 className="text-lg font-semibold text-foreground">
+          Recortar imagen
+        </h2>
         <button
           onClick={handleConfirm}
           className="p-2 text-primary hover:text-primary/80 transition-colors"
@@ -165,8 +172,8 @@ export default function ImageCropper({
           onZoomChange={onZoomChange}
           onCropComplete={onCropAreaComplete}
           classes={{
-            containerClassName: 'bg-black',
-            cropAreaClassName: cropShape === 'round' ? 'rounded-full' : '',
+            containerClassName: "bg-black",
+            cropAreaClassName: cropShape === "round" ? "rounded-full" : "",
           }}
         />
       </div>
@@ -226,4 +233,3 @@ export default function ImageCropper({
     </div>
   );
 }
-
