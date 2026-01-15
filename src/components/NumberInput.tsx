@@ -11,6 +11,7 @@ interface NumberInputProps {
   placeholder?: string;
   className?: string;
   icon?: React.ReactNode;
+  id?: string;
 }
 
 export default function NumberInput({
@@ -22,6 +23,7 @@ export default function NumberInput({
   placeholder,
   className = "",
   icon,
+  id,
 }: NumberInputProps) {
   // Determinar decimales basado en el step
   const decimals =
@@ -51,6 +53,7 @@ export default function NumberInput({
         </div>
       )}
       <input
+        id={id}
         type="text"
         inputMode="decimal"
         value={value}

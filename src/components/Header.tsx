@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Spade, Users } from "lucide-react";
+import { Plus, Spade, Users, Wrench } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import InstallPrompt from "./InstallPrompt";
@@ -8,7 +8,10 @@ import InstallPrompt from "./InstallPrompt";
 export default function Header() {
   const pathname = usePathname();
 
-  const navLinks = [{ href: "/jugadores", label: "Jugadores", icon: Users }];
+  const navLinks = [
+    { href: "/jugadores", label: "Jugadores", icon: Users },
+    { href: "/herramientas", label: "Herramientas", icon: Wrench },
+  ];
 
   return (
     <header className="sticky top-0 z-50 bg-background-secondary/80 backdrop-blur-lg border-b border-border">

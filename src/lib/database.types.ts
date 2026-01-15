@@ -9,6 +9,33 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      chip_sets: {
+        Row: {
+          created_at: string
+          denominations: Json
+          id: string
+          is_preset: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          denominations?: Json
+          id?: string
+          is_preset?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          denominations?: Json
+          id?: string
+          is_preset?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       game_players: {
         Row: {
           final_chips: number
