@@ -10,6 +10,9 @@
     "lint:fix": "biome check . --write",
     "format": "biome format . --write",
     "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
     "db:generate": "supabase gen types typescript --project-id=brllkhhysdhtbzvnuuox --schema=public > src/lib/database.types.ts"
   },
   "dependencies": {
@@ -19,7 +22,8 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-easy-crop": "^5.5.6",
-    "recharts": "^3.6.0"
+    "recharts": "^3.6.0",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
@@ -27,8 +31,10 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/ui": "^4.0.17",
     "supabase": "^2.72.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.17"
   }
 }
