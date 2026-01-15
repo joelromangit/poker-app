@@ -1,7 +1,14 @@
 "use client";
 
-import { Calendar, CalendarDays, Loader2, TrendingUp } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import {
+  Calendar,
+  CalendarDays,
+  Loader2,
+  Pause,
+  Play,
+  TrendingUp,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Line,
   LineChart,
@@ -162,7 +169,9 @@ function RightLabels({
   chartHeight: number;
   maxRank: number;
 }) {
-  if (data.length === 0) return null;
+  if (data.length === 0) {
+    return null;
+  }
 
   const lastPoint = data[data.length - 1];
   const paddingTop = 20;
@@ -244,11 +253,86 @@ function IntervalToggle({
   );
 }
 
+type AnimationSpeed = 1 | 0.5 | 0.25;
+
+// Play/Pause toggle button
+function PlayPauseButton({
+  onToggle,
+  disabled,
+  isAnimating,
+}: {
+  onToggle: () => void;
+  disabled: boolean;
+  isAnimating: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={disabled}
+      className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+        disabled
+          ? "bg-background text-foreground-muted/60 cursor-not-allowed"
+          : isAnimating
+            ? "bg-danger/10 text-danger hover:bg-danger/20"
+            : "bg-primary text-primary-foreground hover:bg-primary/90"
+      }`}
+      title={isAnimating ? "Detener animación" : "Reproducir animación"}
+    >
+      {isAnimating ? (
+        <Pause className="w-4 h-4" />
+      ) : (
+        <Play className="w-4 h-4" />
+      )}
+    </button>
+  );
+}
+
+// Speed control buttons
+function SpeedControls({
+  speed,
+  onSpeedChange,
+  disabled,
+}: {
+  speed: AnimationSpeed;
+  onSpeedChange: (speed: AnimationSpeed) => void;
+  disabled: boolean;
+}) {
+  const speedOptions: AnimationSpeed[] = [1, 0.5, 0.25];
+
+  return (
+    <div className="flex items-center gap-1 bg-background rounded-lg p-1">
+      {speedOptions.map((option) => (
+        <button
+          key={option}
+          type="button"
+          onClick={() => onSpeedChange(option)}
+          disabled={disabled}
+          className={`px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+            speed === option
+              ? "bg-primary text-primary-foreground"
+              : disabled
+                ? "text-foreground-muted/60"
+                : "text-foreground-muted hover:text-foreground hover:bg-background-elevated"
+          }`}
+          title={`Velocidad ${option}x`}
+        >
+          {option}x
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function RankingChart() {
   const [chartData, setChartData] = useState<RankingChartData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [interval, setInterval] = useState<IntervalType>("month");
+  const [animationSeed, setAnimationSeed] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [animationSpeed, setAnimationSpeed] = useState<AnimationSpeed>(1);
+  const animationTimeoutRef = useRef<number | null>(null);
 
   const loadData = useCallback(async (intervalType: IntervalType) => {
     setLoading(true);
@@ -270,8 +354,45 @@ export default function RankingChart() {
   const handleIntervalChange = (newInterval: IntervalType) => {
     setInterval(newInterval);
   };
+  const baseAnimationDuration = 1200;
+  const animationDuration = Math.round(baseAnimationDuration / animationSpeed);
+  const isAnimationReady = !!chartData && chartData.dataPoints.length >= 2;
 
-  const chartHeight = 400;
+  const handlePlayAnimation = () => {
+    if (!isAnimationReady) return;
+    if (animationTimeoutRef.current) {
+      window.clearTimeout(animationTimeoutRef.current);
+    }
+    setIsAnimating(true);
+    setAnimationSeed((seed) => seed + 1);
+    animationTimeoutRef.current = window.setTimeout(() => {
+      setIsAnimating(false);
+    }, animationDuration);
+  };
+
+  const handleStopAnimation = () => {
+    if (animationTimeoutRef.current) {
+      window.clearTimeout(animationTimeoutRef.current);
+      animationTimeoutRef.current = null;
+    }
+    setIsAnimating(false);
+  };
+
+  const handleToggleAnimation = () => {
+    if (isAnimating) {
+      handleStopAnimation();
+    } else {
+      handlePlayAnimation();
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (animationTimeoutRef.current) {
+        window.clearTimeout(animationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const emptyStateMessage =
     interval === "month"
@@ -338,19 +459,81 @@ export default function RankingChart() {
   }
 
   const { dataPoints, players, maxRank } = chartData;
+  const chartHeight = 400;
+  const dotDelayStep = animationDuration / Math.max(dataPoints.length - 1, 1);
+  const renderDot = ({
+    cx,
+    cy,
+    stroke,
+    fill,
+    index,
+  }: {
+    cx?: number;
+    cy?: number;
+    stroke?: string;
+    fill?: string;
+    index?: number;
+  }) => {
+    if (cx == null || cy == null) return null;
+    const delay = (index ?? 0) * dotDelayStep;
+    const style = isAnimating
+      ? ({
+          animation: `ranking-dot-pop ${animationDuration}ms ease-out ${delay}ms both`,
+          transformOrigin: "center",
+          transformBox: "fill-box",
+        } as React.CSSProperties)
+      : undefined;
+    return (
+      <circle
+        cx={cx}
+        cy={cy}
+        r="3"
+        fill={fill ?? stroke ?? "currentColor"}
+        stroke={stroke ?? "currentColor"}
+        strokeWidth="1.5"
+        className="sm:r-4 sm:stroke-2"
+        style={style}
+      />
+    );
+  };
 
   return (
     <div className="bg-background-card rounded-2xl border border-border p-4 sm:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-accent" />
           <h2 className="text-lg font-semibold text-foreground">
             Evolución del Ranking
           </h2>
         </div>
-        <IntervalToggle interval={interval} onChange={handleIntervalChange} />
+        <div className="flex items-center gap-2 flex-wrap">
+          <PlayPauseButton
+            onToggle={handleToggleAnimation}
+            disabled={!isAnimationReady}
+            isAnimating={isAnimating}
+          />
+          <SpeedControls
+            speed={animationSpeed}
+            onSpeedChange={setAnimationSpeed}
+            disabled={!isAnimationReady}
+          />
+          <IntervalToggle interval={interval} onChange={handleIntervalChange} />
+        </div>
       </div>
+
+      <style jsx global>{`
+        @keyframes ranking-dot-pop {
+          0% {
+            transform: scale(0.6);
+            opacity: 0;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+      `}</style>
 
       {/* Chart container with side labels */}
       <div className="relative">
@@ -366,6 +549,7 @@ export default function RankingChart() {
         <div className="mx-24">
           <ResponsiveContainer width="100%" height={chartHeight}>
             <LineChart
+              key={`ranking-chart-${animationSeed}`}
               data={dataPoints}
               margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
             >
@@ -416,12 +600,10 @@ export default function RankingChart() {
                   dataKey={player.name}
                   stroke={player.color}
                   strokeWidth={2.5}
-                  dot={{
-                    fill: player.color,
-                    stroke: player.color,
-                    strokeWidth: 2,
-                    r: 4,
-                  }}
+                  isAnimationActive={isAnimating}
+                  animationDuration={animationDuration}
+                  animationEasing="linear"
+                  dot={renderDot}
                   activeDot={{
                     fill: player.color,
                     stroke: "var(--background)",
