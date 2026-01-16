@@ -1,19 +1,30 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import Header from '@/components/Header';
-import { Calculator, Wrench } from 'lucide-react';
+import { Calculator, Shuffle, Wrench } from "lucide-react";
+import Link from "next/link";
+import Header from "@/components/Header";
 
 // Define available tools
 const tools = [
   {
-    id: 'calculadora',
-    name: 'Calculadora de Fichas',
-    description: 'Calcula la distribución óptima de fichas para tu partida según el número de jugadores',
-    href: '/calculadora',
+    id: "calculadora",
+    name: "Calculadora de Fichas",
+    description:
+      "Calcula la distribución óptima de fichas para tu partida según el número de jugadores",
+    href: "/calculadora",
     icon: Calculator,
-    color: 'text-accent',
-    bgColor: 'bg-accent/20',
+    color: "text-accent",
+    bgColor: "bg-accent/20",
+  },
+  {
+    id: "posiciones",
+    name: "Posiciones de Mesa",
+    description:
+      "Baraja jugadores y asigna BTN, ciegas y posiciones en segundos",
+    href: "/herramientas/posiciones",
+    icon: Shuffle,
+    color: "text-primary",
+    bgColor: "bg-primary/20",
   },
   // Future tools can be added here
 ];
@@ -22,7 +33,7 @@ export default function HerramientasPage() {
   return (
     <>
       <Header />
-      
+
       <main className="flex-1 w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         <div className="animate-fade-in w-full">
           <div className="flex items-center gap-3 mb-2">
@@ -47,7 +58,9 @@ export default function HerramientasPage() {
                   href={tool.href}
                   className="group bg-background-card rounded-2xl border border-border p-6 hover:border-primary/50 transition-all card-hover"
                 >
-                  <div className={`w-12 h-12 rounded-xl ${tool.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                  <div
+                    className={`w-12 h-12 rounded-xl ${tool.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}
+                  >
                     <Icon className={`w-6 h-6 ${tool.color}`} />
                   </div>
                   <h2 className="text-lg font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
@@ -79,12 +92,9 @@ export default function HerramientasPage() {
       {/* Footer */}
       <footer className="border-t border-border py-6">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center">
-          <p className="text-sm text-foreground-muted">
-            Crispy maricón
-          </p>
+          <p className="text-sm text-foreground-muted">Crispy maricón</p>
         </div>
       </footer>
     </>
   );
 }
-
