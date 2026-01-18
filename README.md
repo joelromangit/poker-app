@@ -40,7 +40,7 @@ brew install supabase/tap/supabase
 
 ### 2. Iniciar Supabase local
 
-```bash
+```
 # Iniciar todos los servicios de Supabase localmente
 supabase start
 
