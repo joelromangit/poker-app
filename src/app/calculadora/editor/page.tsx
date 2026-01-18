@@ -2,7 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { createChipSet, getChipSets, updateChipSet } from "@/lib/chipSets";
 import { ChipSetEditor } from "../ChipSetEditor";
@@ -14,7 +14,7 @@ import {
   getDefaultQuantity,
 } from "../utils";
 
-export default function ChipSetEditorPage() {
+function ChipSetEditorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [chipSet, setChipSet] = useState<ChipSet | null>(null);
@@ -125,55 +125,59 @@ export default function ChipSetEditorPage() {
 
   if (loading) {
     return (
-      <>
-        <Header />
-        <main className="flex-1 w-full max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 text-primary animate-spin" />
-          </div>
-        </main>
-      </>
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
     );
   }
 
   if (notFound || !chipSet) {
     return (
-      <>
-        <Header />
-        <main className="flex-1 w-full max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-          <div className="bg-background-card rounded-2xl border border-border p-6 text-center">
-            <h2 className="text-xl font-semibold text-foreground mb-2">
-              Set de fichas no encontrado
-            </h2>
-            <p className="text-foreground-muted mb-4">
-              El set de fichas que buscas no existe o ha sido eliminado.
-            </p>
-            <button
-              onClick={() => router.push("/calculadora")}
-              className="btn-primary px-4 py-2 rounded-lg"
-              type="button"
-            >
-              Volver a la calculadora
-            </button>
-          </div>
-        </main>
-      </>
+      <div className="bg-background-card rounded-2xl border border-border p-6 text-center">
+        <h2 className="text-xl font-semibold text-foreground mb-2">
+          Set de fichas no encontrado
+        </h2>
+        <p className="text-foreground-muted mb-4">
+          El set de fichas que buscas no existe o ha sido eliminado.
+        </p>
+        <button
+          onClick={() => router.push("/calculadora")}
+          className="btn-primary px-4 py-2 rounded-lg"
+          type="button"
+        >
+          Volver a la calculadora
+        </button>
+      </div>
     );
   }
 
+  return (
+    <div className="animate-fade-in w-full">
+      <ChipSetEditor
+        chipSet={chipSet}
+        onSave={handleSave}
+        onCancel={handleCancel}
+        isNew={!chipSet.id}
+      />
+    </div>
+  );
+}
+
+export default function ChipSetEditorPage() {
   return (
     <>
       <Header />
 
       <main className="flex-1 w-full max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-        <div className="animate-fade-in w-full">
-          <ChipSetEditor
-            chipSet={chipSet}
-            onSave={handleSave}
-            onCancel={handleCancel}
-            isNew={!chipSet.id}
-          />
-        </div>
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            </div>
+          }
+        >
+          <ChipSetEditorContent />
+        </Suspense>
       </main>
 
       {/* Footer */}
