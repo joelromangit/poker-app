@@ -461,7 +461,7 @@ function ColumnsMenu({
       {open && (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-56 z-20 bg-background-card border border-border rounded-xl shadow-lg p-2 animate-fade-in"
+          className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] z-20 bg-background-card border border-border rounded-xl shadow-lg p-2 animate-fade-in"
         >
           <p className="text-xs font-semibold text-foreground-muted px-2 py-1.5 uppercase tracking-wide">
             Mostrar columnas
