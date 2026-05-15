@@ -2,12 +2,14 @@
 
 import {
   ArrowUpDown,
+  Check,
   History,
   Loader2,
   Medal,
   Pencil,
   Plus,
   Rainbow,
+  SlidersHorizontal,
   TrendingDown,
   TrendingUp,
   Trophy,
@@ -15,7 +17,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Header from "@/components/Header";
 import {
   createPlayer,
@@ -23,6 +25,14 @@ import {
   getAvatarColor,
   getPlayers,
 } from "@/lib/players";
+import {
+  DEFAULT_PLAYERS_COLUMNS,
+  getPlayersColumnsVisibility,
+  PLAYERS_COLUMNS_META,
+  type PlayerColumnKey,
+  type PlayersColumnsVisibility,
+  savePlayersColumnsVisibility,
+} from "@/lib/preferences";
 import type { Player, PlayerStats } from "@/types";
 import { EditPlayerModal, NewPlayerModal, WhosGayModal } from "./modals";
 import RankingChart from "./RankingChart";
@@ -47,17 +57,23 @@ export default function JugadoresPage() {
   // Orden del ranking
   const [sortBy, setSortBy] = useState<SortBy>("balance");
 
+  // Visibilidad de columnas (persistida en DB)
+  const [columnsVisibility, setColumnsVisibility] =
+    useState<PlayersColumnsVisibility>(DEFAULT_PLAYERS_COLUMNS);
+
   // Who's Gay modal
   const [showGayModal, setShowGayModal] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [playersData, statsData] = await Promise.all([
+      const [playersData, statsData, visibility] = await Promise.all([
         getPlayers(),
         getAllPlayersStats(),
+        getPlayersColumnsVisibility(),
       ]);
       setPlayers(playersData);
+      setColumnsVisibility(visibility);
 
       const statsMap = new Map<string, PlayerStats>();
       for (const s of statsData) {
@@ -73,6 +89,14 @@ export default function JugadoresPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const handleToggleColumn = useCallback((key: PlayerColumnKey) => {
+    setColumnsVisibility((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      savePlayersColumnsVisibility(next);
+      return next;
+    });
+  }, []);
 
   const handleCreatePlayer = async ({
     name,
@@ -192,6 +216,8 @@ export default function JugadoresPage() {
               onSortChange={setSortBy}
               onWhosGay={handleWhosGay}
               onNewPlayer={() => setShowNewPlayer(true)}
+              columnsVisibility={columnsVisibility}
+              onToggleColumn={handleToggleColumn}
             />
           )}
 
@@ -261,6 +287,7 @@ export default function JugadoresPage() {
                     onEdit={openEditModal}
                     onViewGames={handleViewGames}
                     animationDelay={`${index * 0.05}s`}
+                    columnsVisibility={columnsVisibility}
                   />
                 ))}
               </div>
@@ -316,16 +343,20 @@ function SortBar({
   onSortChange,
   onWhosGay,
   onNewPlayer,
+  columnsVisibility,
+  onToggleColumn,
 }: {
   sortBy: SortBy;
   onSortChange: (sort: SortBy) => void;
   onWhosGay: () => void;
   onNewPlayer: () => void;
+  columnsVisibility: PlayersColumnsVisibility;
+  onToggleColumn: (key: PlayerColumnKey) => void;
 }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 p-4 bg-background-card rounded-xl border border-border">
       {/* Botones de ordenación */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <span className="text-sm text-foreground-muted flex items-center gap-1">
           <ArrowUpDown className="w-4 h-4" />
           Ordenar:
@@ -355,7 +386,12 @@ function SortBar({
       </div>
 
       {/* Botones de acción */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <ColumnsMenu
+          columnsVisibility={columnsVisibility}
+          onToggleColumn={onToggleColumn}
+        />
+
         <button
           type="button"
           onClick={onWhosGay}
@@ -378,6 +414,90 @@ function SortBar({
   );
 }
 
+function ColumnsMenu({
+  columnsVisibility,
+  onToggleColumn,
+}: {
+  columnsVisibility: PlayersColumnsVisibility;
+  onToggleColumn: (key: PlayerColumnKey) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const visibleCount = PLAYERS_COLUMNS_META.reduce(
+    (acc, { key }) => acc + (columnsVisibility[key] ? 1 : 0),
+    0,
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 bg-primary text-white font-medium hover:opacity-90 transition-opacity shadow-sm"
+      >
+        <SlidersHorizontal className="w-4 h-4" />
+        <span>Columnas</span>
+        <span className="ml-1 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-white/20 text-xs font-semibold">
+          {visibleCount}
+        </span>
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 mt-2 w-56 z-20 bg-background-card border border-border rounded-xl shadow-lg p-2 animate-fade-in"
+        >
+          <p className="text-xs font-semibold text-foreground-muted px-2 py-1.5 uppercase tracking-wide">
+            Mostrar columnas
+          </p>
+          <div className="flex flex-col">
+            {PLAYERS_COLUMNS_META.map(({ key, label }) => {
+              const checked = columnsVisibility[key];
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={checked}
+                  onClick={() => onToggleColumn(key)}
+                  className="flex items-center justify-between gap-2 px-2 py-2 rounded-lg text-sm text-foreground hover:bg-background transition-colors"
+                >
+                  <span>{label}</span>
+                  <span
+                    className={`w-5 h-5 flex items-center justify-center rounded border ${
+                      checked
+                        ? "bg-primary border-primary text-white"
+                        : "border-border bg-background"
+                    }`}
+                  >
+                    {checked && <Check className="w-3.5 h-3.5" />}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PlayerRankingCard({
   player,
   stats,
@@ -385,6 +505,7 @@ function PlayerRankingCard({
   onEdit,
   onViewGames,
   animationDelay = "0s",
+  columnsVisibility,
 }: {
   player: Player;
   stats: PlayerStats | undefined;
@@ -392,6 +513,7 @@ function PlayerRankingCard({
   onEdit: (player: Player) => void;
   onViewGames: (playerName: string) => void;
   animationDelay?: string;
+  columnsVisibility: PlayersColumnsVisibility;
 }) {
   const balance = stats?.total_balance || 0;
   const isPositive = balance > 0;
@@ -465,41 +587,47 @@ function PlayerRankingCard({
           <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
             {player.name}
           </h3>
-          <button
-            type="button"
-            onClick={() => onViewGames(player.name)}
-            className="text-xs sm:text-sm text-foreground-muted hover:text-primary flex items-center gap-1 transition-colors"
-          >
-            <History className="w-3 h-3" />
-            {stats?.total_games || 0} partidas
-          </button>
+          {columnsVisibility.games && (
+            <button
+              type="button"
+              onClick={() => onViewGames(player.name)}
+              className="text-xs sm:text-sm text-foreground-muted hover:text-primary flex items-center gap-1 transition-colors"
+            >
+              <History className="w-3 h-3" />
+              {stats?.total_games || 0} partidas
+            </button>
+          )}
         </div>
 
         {/* Stats */}
         <div className="flex items-center gap-3 sm:gap-6">
           {/* Balance */}
-          <div className="text-right">
-            <p className="text-xs text-foreground-muted mb-0.5 hidden sm:block">
-              Balance
-            </p>
-            <p
-              className={`text-base sm:text-lg font-bold flex items-center justify-end gap-1 ${
-                isPositive
-                  ? "text-success"
-                  : isNegative
-                    ? "text-danger"
-                    : "text-foreground-muted"
-              }`}
-            >
-              {isPositive && <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />}
-              {isNegative && <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4" />}
-              {isPositive ? "+" : ""}
-              {balance.toFixed(2)}€
-            </p>
-          </div>
+          {columnsVisibility.balance && (
+            <div className="text-right">
+              <p className="text-xs text-foreground-muted mb-0.5 hidden sm:block">
+                Balance
+              </p>
+              <p
+                className={`text-base sm:text-lg font-bold flex items-center justify-end gap-1 ${
+                  isPositive
+                    ? "text-success"
+                    : isNegative
+                      ? "text-danger"
+                      : "text-foreground-muted"
+                }`}
+              >
+                {isPositive && <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />}
+                {isNegative && (
+                  <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4" />
+                )}
+                {isPositive ? "+" : ""}
+                {balance.toFixed(2)}€
+              </p>
+            </div>
+          )}
 
           {/* Win rate */}
-          {stats && stats.total_games > 0 && (
+          {columnsVisibility.winrate && stats && stats.total_games > 0 && (
             <div className="text-right hidden sm:block">
               <p className="text-xs text-foreground-muted mb-0.5">Victorias</p>
               <p className="text-lg font-bold text-foreground flex items-center justify-end gap-1">
@@ -510,22 +638,24 @@ function PlayerRankingCard({
           )}
 
           {/* Media */}
-          <div className="text-right hidden sm:block">
-            <p className="text-xs text-foreground-muted mb-0.5">Media</p>
-            <p
-              className={`text-lg font-bold ${
-                (stats?.average_per_game || 0) >= 0
-                  ? "text-success"
-                  : "text-danger"
-              }`}
-            >
-              {(stats?.average_per_game || 0) >= 0 ? "+" : ""}
-              {(stats?.average_per_game || 0).toFixed(2)}€
-            </p>
-          </div>
+          {columnsVisibility.average && (
+            <div className="text-right hidden sm:block">
+              <p className="text-xs text-foreground-muted mb-0.5">Media</p>
+              <p
+                className={`text-lg font-bold ${
+                  (stats?.average_per_game || 0) >= 0
+                    ? "text-success"
+                    : "text-danger"
+                }`}
+              >
+                {(stats?.average_per_game || 0) >= 0 ? "+" : ""}
+                {(stats?.average_per_game || 0).toFixed(2)}€
+              </p>
+            </div>
+          )}
 
           {/* Mejor - Desktop */}
-          {stats && stats.total_games > 0 && (
+          {columnsVisibility.best && stats && stats.total_games > 0 && (
             <div className="text-right hidden sm:block">
               <p className="text-xs text-foreground-muted mb-0.5">Mejor</p>
               <p
@@ -540,7 +670,7 @@ function PlayerRankingCard({
           )}
 
           {/* Peor - Desktop */}
-          {stats && stats.total_games > 0 && (
+          {columnsVisibility.worst && stats && stats.total_games > 0 && (
             <div className="text-right hidden sm:block">
               <p className="text-xs text-foreground-muted mb-0.5">Peor</p>
               <p
@@ -557,38 +687,54 @@ function PlayerRankingCard({
       </div>
 
       {/* Stats expandidas en móvil */}
-      {stats && stats.total_games > 0 && (
-        <div className="mt-3 pt-3 border-t border-border grid grid-cols-3 gap-3 sm:hidden">
-          <div className="text-center">
-            <p className="text-xs text-foreground-muted">Victorias</p>
-            <p className="font-bold text-foreground text-sm">
-              {stats.win_rate.toFixed(0)}%
-            </p>
+      {stats &&
+        stats.total_games > 0 &&
+        (columnsVisibility.winrate ||
+          columnsVisibility.best ||
+          columnsVisibility.worst) && (
+          <div className="mt-3 pt-3 border-t border-border grid grid-cols-3 gap-3 sm:hidden">
+            {columnsVisibility.winrate ? (
+              <div className="text-center">
+                <p className="text-xs text-foreground-muted">Victorias</p>
+                <p className="font-bold text-foreground text-sm">
+                  {stats.win_rate.toFixed(0)}%
+                </p>
+              </div>
+            ) : (
+              <div />
+            )}
+            {columnsVisibility.best ? (
+              <div className="text-center">
+                <p className="text-xs text-foreground-muted">Mejor</p>
+                <p
+                  className={`font-bold text-sm ${
+                    stats.best_game > 0 ? "text-success" : "text-danger"
+                  }`}
+                >
+                  {stats.best_game > 0 ? "+" : ""}
+                  {stats.best_game.toFixed(2)}€
+                </p>
+              </div>
+            ) : (
+              <div />
+            )}
+            {columnsVisibility.worst ? (
+              <div className="text-center">
+                <p className="text-xs text-foreground-muted">Peor</p>
+                <p
+                  className={`font-bold text-sm ${
+                    stats.worst_game >= 0 ? "text-success" : "text-danger"
+                  }`}
+                >
+                  {stats.worst_game > 0 ? "+" : ""}
+                  {stats.worst_game.toFixed(2)}€
+                </p>
+              </div>
+            ) : (
+              <div />
+            )}
           </div>
-          <div className="text-center">
-            <p className="text-xs text-foreground-muted">Mejor</p>
-            <p
-              className={`font-bold text-sm ${
-                stats.best_game > 0 ? "text-success" : "text-danger"
-              }`}
-            >
-              {stats.best_game > 0 ? "+" : ""}
-              {stats.best_game.toFixed(2)}€
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-xs text-foreground-muted">Peor</p>
-            <p
-              className={`font-bold text-sm ${
-                stats.worst_game >= 0 ? "text-success" : "text-danger"
-              }`}
-            >
-              {stats.worst_game > 0 ? "+" : ""}
-              {stats.worst_game.toFixed(2)}€
-            </p>
-          </div>
-        </div>
-      )}
+        )}
     </div>
   );
 }
