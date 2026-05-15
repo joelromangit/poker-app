@@ -385,7 +385,7 @@ export default function JugadoresPage() {
               {/* Gráfico de evolución del ranking */}
               {playersWithGames.length > 0 && (
                 <div className="mt-8">
-                  <RankingChart />
+                  <RankingChart hiddenPlayerIds={hiddenPlayerIds} />
                 </div>
               )}
             </>
@@ -543,7 +543,7 @@ function ColumnsMenu({
           <p className="text-xs font-semibold text-foreground-muted px-2 py-1.5 uppercase tracking-wide">
             Mostrar columnas
           </p>
-          <div className="flex flex-col">
+          <div className="flex flex-col gap-0.5">
             {PLAYERS_COLUMNS_META.map(({ key, label }) => {
               const checked = columnsVisibility[key];
               return (
@@ -553,17 +553,23 @@ function ColumnsMenu({
                   role="menuitemcheckbox"
                   aria-checked={checked}
                   onClick={() => onToggleColumn(key)}
-                  className="flex items-center justify-between gap-2 px-2 py-2 rounded-lg text-sm text-foreground hover:bg-background transition-colors"
+                  className={`flex items-center justify-between gap-2 px-2.5 py-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
+                    checked
+                      ? "bg-primary/15 text-foreground hover:bg-primary/25"
+                      : "text-foreground-muted hover:bg-background hover:text-foreground"
+                  }`}
                 >
-                  <span>{label}</span>
+                  <span className="font-medium">{label}</span>
                   <span
-                    className={`w-5 h-5 flex items-center justify-center rounded border ${
+                    className={`w-5 h-5 flex items-center justify-center rounded transition-colors flex-shrink-0 ${
                       checked
-                        ? "bg-primary border-primary text-white"
-                        : "border-border bg-background"
+                        ? "bg-primary text-white"
+                        : "bg-background border-2 border-foreground-muted/60"
                     }`}
                   >
-                    {checked && <Check className="w-3.5 h-3.5" />}
+                    {checked && (
+                      <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                    )}
                   </span>
                 </button>
               );
@@ -640,7 +646,7 @@ function PlayersFilterMenu({
               No hay jugadores con partidas
             </p>
           ) : (
-            <div className="flex flex-col">
+            <div className="flex flex-col gap-0.5">
               {sortedPlayers.map((player) => {
                 const included = !hiddenPlayerIds.has(player.id);
                 return (
@@ -650,25 +656,35 @@ function PlayersFilterMenu({
                     role="menuitemcheckbox"
                     aria-checked={included}
                     onClick={() => onTogglePlayerHidden(player.id)}
-                    className="flex items-center justify-between gap-2 px-2 py-2 rounded-lg text-sm text-foreground hover:bg-background transition-colors"
+                    className={`flex items-center justify-between gap-2 px-2.5 py-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
+                      included
+                        ? "bg-primary/15 text-foreground hover:bg-primary/25"
+                        : "text-foreground-muted hover:bg-background hover:text-foreground line-through decoration-foreground-muted/40"
+                    }`}
                   >
                     <span className="flex items-center gap-2 min-w-0">
                       <span
-                        className="w-5 h-5 rounded-full flex-shrink-0 border border-border"
+                        className={`w-5 h-5 rounded-full flex-shrink-0 border border-border transition-opacity ${
+                          included ? "opacity-100" : "opacity-50"
+                        }`}
                         style={{
                           backgroundColor: getAvatarColor(player.avatar_color),
                         }}
                       />
-                      <span className="truncate">{player.name}</span>
+                      <span className="truncate font-medium">
+                        {player.name}
+                      </span>
                     </span>
                     <span
-                      className={`w-5 h-5 flex items-center justify-center rounded border flex-shrink-0 ${
+                      className={`w-5 h-5 flex items-center justify-center rounded transition-colors flex-shrink-0 ${
                         included
-                          ? "bg-primary border-primary text-white"
-                          : "border-border bg-background"
+                          ? "bg-primary text-white"
+                          : "bg-background border-2 border-foreground-muted/60"
                       }`}
                     >
-                      {included && <Check className="w-3.5 h-3.5" />}
+                      {included && (
+                        <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                      )}
                     </span>
                   </button>
                 );

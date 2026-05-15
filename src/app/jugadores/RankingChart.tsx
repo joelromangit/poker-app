@@ -19,6 +19,7 @@ import {
 } from "recharts";
 import {
   type ChartDataPoint,
+  filterChartData,
   getRankingEvolution,
   type IntervalType,
   type PlayerChartInfo,
@@ -324,8 +325,14 @@ function SpeedControls({
   );
 }
 
-export default function RankingChart() {
-  const [chartData, setChartData] = useState<RankingChartData | null>(null);
+export default function RankingChart({
+  hiddenPlayerIds,
+}: {
+  hiddenPlayerIds?: ReadonlySet<string>;
+} = {}) {
+  const [rawChartData, setRawChartData] = useState<RankingChartData | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [interval, setInterval] = useState<IntervalType>("month");
@@ -334,12 +341,16 @@ export default function RankingChart() {
   const [animationSpeed, setAnimationSpeed] = useState<AnimationSpeed>(1);
   const animationTimeoutRef = useRef<number | null>(null);
 
+  const chartData = rawChartData
+    ? filterChartData(rawChartData, hiddenPlayerIds ?? new Set())
+    : null;
+
   const loadData = useCallback(async (intervalType: IntervalType) => {
     setLoading(true);
     setError(null);
     try {
       const data = await getRankingEvolution(intervalType);
-      setChartData(data);
+      setRawChartData(data);
     } catch (err) {
       console.error("Error loading ranking chart:", err);
       setError("Error al cargar el gráfico");

@@ -42,7 +42,7 @@ function formatPeriodLabel(date: Date, intervalType: IntervalType): string {
  * into a format suitable for Recharts LineChart
  */
 export async function getRankingEvolution(
-  intervalType: IntervalType = "month"
+  intervalType: IntervalType = "month",
 ): Promise<RankingChartData | null> {
   const { data, error } = await db.rpc("get_ranking_evolution", {
     interval_type: intervalType,
@@ -114,5 +114,48 @@ export async function getRankingEvolution(
     dataPoints,
     players,
     maxRank,
+  };
+}
+
+/**
+ * Removes hidden players from the chart data and re-ranks the remaining
+ * players per period so they keep contiguous positions (1..N).
+ */
+export function filterChartData(
+  data: RankingChartData,
+  hiddenPlayerIds: ReadonlySet<string>,
+): RankingChartData {
+  if (hiddenPlayerIds.size === 0) return data;
+
+  const visiblePlayers = data.players.filter((p) => !hiddenPlayerIds.has(p.id));
+
+  if (visiblePlayers.length === 0) {
+    return { dataPoints: [], players: [], maxRank: 1 };
+  }
+
+  const visibleNames = new Set(visiblePlayers.map((p) => p.name));
+
+  const dataPoints: ChartDataPoint[] = data.dataPoints.map((point) => {
+    const ranked: { name: string; oldRank: number }[] = [];
+    for (const name of visibleNames) {
+      const rank = point[name];
+      if (typeof rank === "number") ranked.push({ name, oldRank: rank });
+    }
+    ranked.sort((a, b) => a.oldRank - b.oldRank);
+
+    const newPoint: ChartDataPoint = {
+      period: point.period as string,
+      periodLabel: point.periodLabel as string,
+    };
+    ranked.forEach((r, i) => {
+      newPoint[r.name] = i + 1;
+    });
+    return newPoint;
+  });
+
+  return {
+    dataPoints,
+    players: visiblePlayers,
+    maxRank: visiblePlayers.length,
   };
 }
