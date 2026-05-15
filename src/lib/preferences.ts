@@ -88,3 +88,55 @@ export async function savePlayersColumnsVisibility(
     return false;
   }
 }
+
+export const RANKING_HIDDEN_PLAYERS_KEY = "ranking_hidden_players";
+
+function sanitizeHiddenPlayerIds(value: unknown): string[] {
+  if (!value || typeof value !== "object") return [];
+  const obj = value as Record<string, unknown>;
+  const arr = obj.player_ids;
+  if (!Array.isArray(arr)) return [];
+  return arr.filter((id): id is string => typeof id === "string");
+}
+
+export async function getRankingHiddenPlayerIds(): Promise<string[]> {
+  try {
+    const { data, error } = await db
+      .from("user_preferences")
+      .select("value")
+      .eq("key", RANKING_HIDDEN_PLAYERS_KEY)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error fetching ranking hidden players:", error);
+      return [];
+    }
+    if (!data) return [];
+    return sanitizeHiddenPlayerIds(data.value);
+  } catch (err) {
+    console.error("Error fetching ranking hidden players:", err);
+    return [];
+  }
+}
+
+export async function saveRankingHiddenPlayerIds(
+  ids: string[],
+): Promise<boolean> {
+  try {
+    const { error } = await db.from("user_preferences").upsert(
+      {
+        key: RANKING_HIDDEN_PLAYERS_KEY,
+        value: { player_ids: ids } as unknown as Json,
+      },
+      { onConflict: "key" },
+    );
+    if (error) {
+      console.error("Error saving ranking hidden players:", error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("Error saving ranking hidden players:", err);
+    return false;
+  }
+}

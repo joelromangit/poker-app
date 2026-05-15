@@ -3,6 +3,7 @@
 import {
   ArrowUpDown,
   Check,
+  EyeOff,
   History,
   Loader2,
   Medal,
@@ -28,10 +29,12 @@ import {
 import {
   DEFAULT_PLAYERS_COLUMNS,
   getPlayersColumnsVisibility,
+  getRankingHiddenPlayerIds,
   PLAYERS_COLUMNS_META,
   type PlayerColumnKey,
   type PlayersColumnsVisibility,
   savePlayersColumnsVisibility,
+  saveRankingHiddenPlayerIds,
 } from "@/lib/preferences";
 import type { Player, PlayerStats } from "@/types";
 import { EditPlayerModal, NewPlayerModal, WhosGayModal } from "./modals";
@@ -61,19 +64,28 @@ export default function JugadoresPage() {
   const [columnsVisibility, setColumnsVisibility] =
     useState<PlayersColumnsVisibility>(DEFAULT_PLAYERS_COLUMNS);
 
+  // Jugadores excluidos del ranking (persistido en DB)
+  const [hiddenPlayerIds, setHiddenPlayerIds] = useState<Set<string>>(
+    () => new Set<string>(),
+  );
+
   // Who's Gay modal
   const [showGayModal, setShowGayModal] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [playersData, statsData, visibility] = await Promise.all([
-        getPlayers(),
-        getAllPlayersStats(),
-        getPlayersColumnsVisibility(),
-      ]);
+      const [playersData, statsData, visibility, hiddenIds] = await Promise.all(
+        [
+          getPlayers(),
+          getAllPlayersStats(),
+          getPlayersColumnsVisibility(),
+          getRankingHiddenPlayerIds(),
+        ],
+      );
       setPlayers(playersData);
       setColumnsVisibility(visibility);
+      setHiddenPlayerIds(new Set(hiddenIds));
 
       const statsMap = new Map<string, PlayerStats>();
       for (const s of statsData) {
@@ -94,6 +106,16 @@ export default function JugadoresPage() {
     setColumnsVisibility((prev) => {
       const next = { ...prev, [key]: !prev[key] };
       savePlayersColumnsVisibility(next);
+      return next;
+    });
+  }, []);
+
+  const handleTogglePlayerHidden = useCallback((playerId: string) => {
+    setHiddenPlayerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(playerId)) next.delete(playerId);
+      else next.add(playerId);
+      saveRankingHiddenPlayerIds(Array.from(next));
       return next;
     });
   }, []);
@@ -159,8 +181,16 @@ export default function JugadoresPage() {
     return !playerStats || playerStats.total_games === 0;
   });
 
+  // Excluir del ranking los marcados como ocultos
+  const rankedPlayers = playersWithGames.filter(
+    (p) => !hiddenPlayerIds.has(p.id),
+  );
+  const hiddenPlayers = playersWithGames.filter((p) =>
+    hiddenPlayerIds.has(p.id),
+  );
+
   // Ordenar jugadores con partidas según el criterio seleccionado
-  const sortedPlayersWithGames = [...playersWithGames].sort((a, b) => {
+  const sortedPlayersWithGames = [...rankedPlayers].sort((a, b) => {
     const statsA = stats.get(a.id);
     const statsB = stats.get(b.id);
 
@@ -174,6 +204,11 @@ export default function JugadoresPage() {
       return winrateB - winrateA;
     }
   });
+
+  // Ordenar jugadores ocultos alfabéticamente
+  const sortedHiddenPlayers = [...hiddenPlayers].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
 
   // Ordenar jugadores sin partidas alfabéticamente
   const sortedPlayersWithoutGames = [...playersWithoutGames].sort((a, b) =>
@@ -218,6 +253,9 @@ export default function JugadoresPage() {
               onNewPlayer={() => setShowNewPlayer(true)}
               columnsVisibility={columnsVisibility}
               onToggleColumn={handleToggleColumn}
+              playersWithGames={playersWithGames}
+              hiddenPlayerIds={hiddenPlayerIds}
+              onTogglePlayerHidden={handleTogglePlayerHidden}
             />
           )}
 
@@ -292,6 +330,33 @@ export default function JugadoresPage() {
                 ))}
               </div>
 
+              {/* Sección de jugadores ocultos del ranking */}
+              {sortedHiddenPlayers.length > 0 && (
+                <div className="mt-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <EyeOff className="w-5 h-5 text-foreground-muted" />
+                    <h2 className="text-lg font-semibold text-foreground-muted">
+                      Excluidos del ranking
+                    </h2>
+                    <span className="text-sm text-foreground-muted bg-background px-2 py-0.5 rounded-full">
+                      {sortedHiddenPlayers.length}
+                    </span>
+                  </div>
+                  <div className="grid gap-2">
+                    {sortedHiddenPlayers.map((player, index) => (
+                      <HiddenPlayerCard
+                        key={player.id}
+                        player={player}
+                        stats={getPlayerStats(player.id)}
+                        onEdit={openEditModal}
+                        onRestore={() => handleTogglePlayerHidden(player.id)}
+                        animationDelay={`${(sortedPlayersWithGames.length + index) * 0.05}s`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Sección de jugadores sin partidas */}
               {sortedPlayersWithoutGames.length > 0 && (
                 <div className="mt-8">
@@ -345,6 +410,9 @@ function SortBar({
   onNewPlayer,
   columnsVisibility,
   onToggleColumn,
+  playersWithGames,
+  hiddenPlayerIds,
+  onTogglePlayerHidden,
 }: {
   sortBy: SortBy;
   onSortChange: (sort: SortBy) => void;
@@ -352,6 +420,9 @@ function SortBar({
   onNewPlayer: () => void;
   columnsVisibility: PlayersColumnsVisibility;
   onToggleColumn: (key: PlayerColumnKey) => void;
+  playersWithGames: Player[];
+  hiddenPlayerIds: Set<string>;
+  onTogglePlayerHidden: (playerId: string) => void;
 }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 p-4 bg-background-card rounded-xl border border-border">
@@ -390,6 +461,12 @@ function SortBar({
         <ColumnsMenu
           columnsVisibility={columnsVisibility}
           onToggleColumn={onToggleColumn}
+        />
+
+        <PlayersFilterMenu
+          playersWithGames={playersWithGames}
+          hiddenPlayerIds={hiddenPlayerIds}
+          onTogglePlayerHidden={onTogglePlayerHidden}
         />
 
         <button
@@ -492,6 +569,112 @@ function ColumnsMenu({
               );
             })}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlayersFilterMenu({
+  playersWithGames,
+  hiddenPlayerIds,
+  onTogglePlayerHidden,
+}: {
+  playersWithGames: Player[];
+  hiddenPlayerIds: Set<string>;
+  onTogglePlayerHidden: (playerId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const hiddenCount = playersWithGames.reduce(
+    (acc, p) => acc + (hiddenPlayerIds.has(p.id) ? 1 : 0),
+    0,
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  const sortedPlayers = [...playersWithGames].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 bg-primary text-white font-medium hover:opacity-90 transition-opacity shadow-sm"
+      >
+        <EyeOff className="w-4 h-4" />
+        <span>Jugadores</span>
+        {hiddenCount > 0 && (
+          <span className="ml-1 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-white/20 text-xs font-semibold">
+            {hiddenCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] max-h-[60vh] overflow-y-auto z-20 bg-background-card border border-border rounded-xl shadow-lg p-2 animate-fade-in"
+        >
+          <p className="text-xs font-semibold text-foreground-muted px-2 py-1.5 uppercase tracking-wide">
+            Incluir en el ranking
+          </p>
+          {sortedPlayers.length === 0 ? (
+            <p className="px-2 py-3 text-sm text-foreground-muted">
+              No hay jugadores con partidas
+            </p>
+          ) : (
+            <div className="flex flex-col">
+              {sortedPlayers.map((player) => {
+                const included = !hiddenPlayerIds.has(player.id);
+                return (
+                  <button
+                    key={player.id}
+                    type="button"
+                    role="menuitemcheckbox"
+                    aria-checked={included}
+                    onClick={() => onTogglePlayerHidden(player.id)}
+                    className="flex items-center justify-between gap-2 px-2 py-2 rounded-lg text-sm text-foreground hover:bg-background transition-colors"
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="w-5 h-5 rounded-full flex-shrink-0 border border-border"
+                        style={{
+                          backgroundColor: getAvatarColor(player.avatar_color),
+                        }}
+                      />
+                      <span className="truncate">{player.name}</span>
+                    </span>
+                    <span
+                      className={`w-5 h-5 flex items-center justify-center rounded border flex-shrink-0 ${
+                        included
+                          ? "bg-primary border-primary text-white"
+                          : "border-border bg-background"
+                      }`}
+                    >
+                      {included && <Check className="w-3.5 h-3.5" />}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -735,6 +918,73 @@ function PlayerRankingCard({
             )}
           </div>
         )}
+    </div>
+  );
+}
+
+function HiddenPlayerCard({
+  player,
+  stats,
+  onEdit,
+  onRestore,
+  animationDelay = "0s",
+}: {
+  player: Player;
+  stats: PlayerStats | undefined;
+  onEdit: (player: Player) => void;
+  onRestore: () => void;
+  animationDelay?: string;
+}) {
+  return (
+    <div
+      className="bg-background-card rounded-xl p-3 sm:p-4 border border-border/50 opacity-70 transition-all hover:opacity-100 hover:border-primary/30 animate-slide-in"
+      style={{ animationDelay }}
+    >
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => onEdit(player)}
+          className="relative group flex-shrink-0"
+          title="Editar jugador"
+        >
+          {player.avatar_url ? (
+            <img
+              src={player.avatar_url}
+              alt={player.name}
+              className="w-10 h-10 rounded-full object-cover transition-opacity group-hover:opacity-70"
+            />
+          ) : (
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-base transition-opacity group-hover:opacity-70"
+              style={{
+                backgroundColor: getAvatarColor(player.avatar_color),
+              }}
+            >
+              {player.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="absolute inset-0 rounded-full flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Pencil className="w-4 h-4 text-white" />
+          </div>
+        </button>
+
+        <div className="flex-1 min-w-0">
+          <h3 className="text-base font-semibold text-foreground truncate">
+            {player.name}
+          </h3>
+          <p className="text-xs text-foreground-muted">
+            {stats?.total_games || 0} partidas · oculto del ranking
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onRestore}
+          className="px-3 py-1.5 rounded-lg text-xs sm:text-sm bg-primary text-white font-medium hover:opacity-90 transition-opacity flex-shrink-0"
+        >
+          Incluir
+        </button>
+      </div>
     </div>
   );
 }
