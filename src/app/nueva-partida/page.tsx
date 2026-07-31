@@ -658,6 +658,10 @@ export default function NuevaPartidaPage() {
                     <div className="text-xs text-foreground-muted pt-2 border-t border-border">
                       Small Blind: 5 fichas | Big Blind: 10 fichas
                     </div>
+                    <div className="text-xs text-primary pt-2 mt-2 border-t border-border flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 flex-shrink-0" />
+                      La entrada de cada jugador ({CASH_GAME_FORMATS[cashGameFormat].totalEntry}€, {CASH_GAME_FORMATS[cashGameFormat].totalEntry * 2}€...) y sus rebuys se eligen abajo, al añadirlo a la lista de jugadores
+                    </div>
                   </div>
                 ) : (
                   <div className="p-4 bg-background rounded-xl border border-border">
@@ -697,6 +701,10 @@ export default function NuevaPartidaPage() {
                         <span className="text-sm text-foreground-muted">Entry total calculado:</span>
                         <span className="font-bold text-lg text-accent">{calculateCustomEntry().toFixed(2)}€</span>
                       </div>
+                    </div>
+                    <div className="text-xs text-primary pt-2 mt-2 border-t border-border flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 flex-shrink-0" />
+                      La entrada de cada jugador y sus rebuys se eligen abajo, al añadirlo a la lista de jugadores
                     </div>
                   </div>
                 )}
@@ -845,6 +853,9 @@ export default function NuevaPartidaPage() {
               <div className="text-center py-8 text-foreground-muted">
                 <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
                 <p>Selecciona al menos 2 jugadores para empezar</p>
+                <p className="text-xs mt-1">
+                  Después podrás elegir la entrada (10€, 20€...) y los rebuys de cada uno
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
