@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Spade, Users, Wrench } from "lucide-react";
+import { ChartLine, Plus, Spade, Users, Wrench } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import InstallPrompt from "./InstallPrompt";
@@ -10,6 +10,7 @@ export default function Header() {
 
   const navLinks = [
     { href: "/jugadores", label: "Jugadores", icon: Users },
+    { href: "/historico", label: "Histórico", icon: ChartLine },
     { href: "/herramientas", label: "Herramientas", icon: Wrench },
   ];
 

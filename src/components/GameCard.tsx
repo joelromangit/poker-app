@@ -3,6 +3,8 @@
 import {
   Calendar,
   Frown,
+  Medal,
+  Minus,
   TrendingDown,
   TrendingUp,
   Trophy,
@@ -14,9 +16,16 @@ import type { GameSummary } from "@/types";
 interface GameCardProps {
   game: GameSummary;
   index: number;
+  // Si se indica, la tarjeta muestra el resultado de este jugador
+  // en lugar del mejor/peor resultado de la partida
+  highlightPlayer?: string;
 }
 
-export default function GameCard({ game, index }: GameCardProps) {
+export default function GameCard({
+  game,
+  index,
+  highlightPlayer,
+}: GameCardProps) {
   const date = new Date(game.created_at);
   const formattedDate = date.toLocaleDateString("es-ES", {
     day: "numeric",
@@ -33,6 +42,18 @@ export default function GameCard({ game, index }: GameCardProps) {
   const worstLoserProfit = game.worst_loser_profit ?? 0;
   const isWinner = topWinnerProfit > 0;
   const isLoser = worstLoserProfit < 0;
+
+  // Resultado del jugador destacado (si se filtra por jugador)
+  const highlighted = highlightPlayer
+    ? (game.player_results ?? []).find(
+        (pr) => pr.name.toLowerCase() === highlightPlayer.toLowerCase(),
+      )
+    : undefined;
+  const highlightedPosition = highlighted
+    ? [...(game.player_results ?? [])]
+        .sort((a, b) => b.profit - a.profit)
+        .findIndex((pr) => pr.name === highlighted.name) + 1
+    : 0;
 
   return (
     <Link href={`/partida/${game.id}`}>
@@ -61,50 +82,110 @@ export default function GameCard({ game, index }: GameCardProps) {
           </div>
         </div>
 
-        {/* Mejor resultado */}
-        <div className="flex items-center justify-between py-3 border-t border-border">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-warning/20 flex items-center justify-center">
-              <Trophy className="w-4 h-4 text-warning" />
+        {highlighted ? (
+          /* Resultado del jugador filtrado */
+          <div className="flex items-center justify-between py-3 border-t border-border">
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  highlighted.profit > 0
+                    ? "bg-success/20"
+                    : highlighted.profit < 0
+                      ? "bg-danger/20"
+                      : "bg-background-secondary"
+                }`}
+              >
+                <Medal
+                  className={`w-4 h-4 ${
+                    highlighted.profit > 0
+                      ? "text-success"
+                      : highlighted.profit < 0
+                        ? "text-danger"
+                        : "text-foreground-muted"
+                  }`}
+                />
+              </div>
+              <div>
+                <p className="text-xs text-foreground-muted">
+                  Resultado de {highlighted.name}
+                </p>
+                <p className="font-medium text-foreground">
+                  {highlightedPosition}º de {game.player_count}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-foreground-muted">Mejor resultado</p>
-              <p className="font-medium text-foreground">
-                {game.top_winner || "-"}
-              </p>
+            <div
+              className={`flex items-center gap-1 ${
+                highlighted.profit > 0
+                  ? "text-success"
+                  : highlighted.profit < 0
+                    ? "text-danger"
+                    : "text-foreground-muted"
+              }`}
+            >
+              {highlighted.profit > 0 && <TrendingUp className="w-4 h-4" />}
+              {highlighted.profit < 0 && <TrendingDown className="w-4 h-4" />}
+              {highlighted.profit === 0 && <Minus className="w-4 h-4" />}
+              <span className="font-bold">
+                {highlighted.profit > 0 ? "+" : ""}
+                {highlighted.profit.toFixed(2)}€
+              </span>
             </div>
           </div>
-          <div
-            className={`flex items-center gap-1 ${isWinner ? "text-success" : "text-foreground-muted"}`}
-          >
-            {isWinner && <TrendingUp className="w-4 h-4" />}
-            <span className="font-bold">
-              {isWinner ? "+" : ""}
-              {topWinnerProfit.toFixed(2)}€
-            </span>
-          </div>
-        </div>
+        ) : (
+          <>
+            {/* Mejor resultado */}
+            <div className="flex items-center justify-between py-3 border-t border-border">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-warning/20 flex items-center justify-center">
+                  <Trophy className="w-4 h-4 text-warning" />
+                </div>
+                <div>
+                  <p className="text-xs text-foreground-muted">
+                    Mejor resultado
+                  </p>
+                  <p className="font-medium text-foreground">
+                    {game.top_winner || "-"}
+                  </p>
+                </div>
+              </div>
+              <div
+                className={`flex items-center gap-1 ${isWinner ? "text-success" : "text-foreground-muted"}`}
+              >
+                {isWinner && <TrendingUp className="w-4 h-4" />}
+                <span className="font-bold">
+                  {isWinner ? "+" : ""}
+                  {topWinnerProfit.toFixed(2)}€
+                </span>
+              </div>
+            </div>
 
-        {/* Peor resultado */}
-        <div className="flex items-center justify-between pt-3 border-t border-border">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-danger/20 flex items-center justify-center">
-              <Frown className="w-4 h-4 text-danger" />
+            {/* Peor resultado */}
+            <div className="flex items-center justify-between pt-3 border-t border-border">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-danger/20 flex items-center justify-center">
+                  <Frown className="w-4 h-4 text-danger" />
+                </div>
+                <div>
+                  <p className="text-xs text-foreground-muted">
+                    Peor resultado
+                  </p>
+                  <p className="font-medium text-foreground">
+                    {game.worst_loser || "-"}
+                  </p>
+                </div>
+              </div>
+              <div
+                className={`flex items-center gap-1 ${isLoser ? "text-danger" : "text-foreground-muted"}`}
+              >
+                {isLoser && <TrendingDown className="w-4 h-4" />}
+                <span className="font-bold">
+                  {worstLoserProfit.toFixed(2)}€
+                </span>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-foreground-muted">Peor resultado</p>
-              <p className="font-medium text-foreground">
-                {game.worst_loser || "-"}
-              </p>
-            </div>
-          </div>
-          <div
-            className={`flex items-center gap-1 ${isLoser ? "text-danger" : "text-foreground-muted"}`}
-          >
-            {isLoser && <TrendingDown className="w-4 h-4" />}
-            <span className="font-bold">{worstLoserProfit.toFixed(2)}€</span>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </Link>
   );

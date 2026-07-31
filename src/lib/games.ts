@@ -41,6 +41,14 @@ export async function getGamesSummary(): Promise<GameSummary[]> {
       .map((gp: typeof gamePlayers[0]) => gp.players?.name)
       .filter((name: string | undefined): name is string => !!name);
 
+    // Resultado de cada participante (para el historial filtrado por jugador)
+    const playerResults = gamePlayers
+      .filter((gp: typeof gamePlayers[0]) => !!gp.players?.name)
+      .map((gp: typeof gamePlayers[0]) => ({
+        name: gp.players?.name as string,
+        profit: gp.profit,
+      }));
+
     return {
       id: game.id,
       created_at: game.created_at,
@@ -52,6 +60,7 @@ export async function getGamesSummary(): Promise<GameSummary[]> {
       worst_loser: worstLoser?.players?.name || '-',
       worst_loser_profit: worstLoser?.profit || 0,
       participants,
+      player_results: playerResults,
     };
   });
 }

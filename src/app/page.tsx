@@ -208,6 +208,7 @@ function HomeContent() {
             <div className="relative max-w-5xl mx-auto px-4 sm:px-6">
               {/* Estadísticas del jugador filtrado */}
               {playerFilter && selectedPlayer && filteredPlayerStats ? (
+                <div>
                 <div className="grid grid-cols-3 gap-4 sm:gap-6">
                   {/* Avatar y nombre del jugador */}
                   <div className="bg-background-card/80 backdrop-blur rounded-xl p-4 sm:p-6 text-center border border-primary/50 animate-fade-in">
@@ -260,6 +261,19 @@ function HomeContent() {
                     </p>
                     <p className="text-xs sm:text-sm text-foreground-muted">Victorias</p>
                   </div>
+                </div>
+
+                {/* Enlace al histórico completo del jugador */}
+                <div className="mt-4 text-center">
+                  <Link
+                    href={`/historico?jugador=${encodeURIComponent(selectedPlayer.name)}`}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-background-card/80 backdrop-blur border border-border text-sm font-medium text-primary hover:border-primary transition-colors"
+                  >
+                    <TrendingUp className="w-4 h-4" />
+                    Ver histórico completo de {selectedPlayer.name}
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
                 </div>
               ) : (
                 /* Estadísticas globales */
@@ -491,7 +505,12 @@ function HomeContent() {
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {filteredGames.map((game, index) => (
-                    <GameCard key={game.id} game={game} index={index} />
+                    <GameCard
+                      key={game.id}
+                      game={game}
+                      index={index}
+                      highlightPlayer={playerFilter || undefined}
+                    />
                   ))}
                 </div>
               )}
