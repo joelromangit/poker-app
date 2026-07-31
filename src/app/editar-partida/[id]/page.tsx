@@ -88,11 +88,15 @@ export default function EditarPartidaPage() {
       setGameTime(existingDate.toTimeString().slice(0, 5));
       
       // Mapear jugadores de la partida al formato del formulario
+      // buy_ins se deriva de las fichas de entrada guardadas respecto al buy-in base
       const formPlayers: GameFormPlayer[] = gameData.game_players
         .map(gp => ({
           player_id: gp.player_id,
           player: gp.player,
           final_chips: gp.final_chips.toString(),
+          buy_ins: gameData.buy_in > 0
+            ? (Math.round((gp.initial_chips / gameData.buy_in) * 100) / 100).toString()
+            : '1',
           rebuys: (gp.rebuys || 0).toString(),
         }));
       setSelectedPlayers(formPlayers);
@@ -111,6 +115,7 @@ export default function EditarPartidaPage() {
       player_id: player.id,
       player: player,
       final_chips: '',
+      buy_ins: '1',
       rebuys: '0',
     }]);
     setShowPlayerDropdown(false);
@@ -156,6 +161,35 @@ export default function EditarPartidaPage() {
     }));
   };
 
+  // Parsear buy-ins iniciales de string a número (mínimo 1 buy-in de entrada)
+  const parseBuyIns = (buyIns: string): number => {
+    const normalized = (buyIns || '').replace(',', '.');
+    const num = parseFloat(normalized);
+    return num > 0 ? num : 1;
+  };
+
+  // Actualizar buy-ins iniciales con delta (+1 o -1), mínimo 1
+  const updateBuyIns = (playerId: string, delta: number) => {
+    setSelectedPlayers(selectedPlayers.map(p => {
+      if (p.player_id === playerId) {
+        const currentValue = parseFloat(p.buy_ins) || 1;
+        const newBuyIns = Math.max(1, Math.round((currentValue + delta) * 10) / 10);
+        return { ...p, buy_ins: newBuyIns.toString() };
+      }
+      return p;
+    }));
+  };
+
+  // Establecer buy-ins directamente (para input manual)
+  const setBuyInsDirectly = (playerId: string, value: string) => {
+    setSelectedPlayers(selectedPlayers.map(p => {
+      if (p.player_id === playerId) {
+        return { ...p, buy_ins: value };
+      }
+      return p;
+    }));
+  };
+
   // Crear nuevo jugador
   const handleCreatePlayer = async () => {
     if (!newPlayerName.trim()) return;
@@ -173,35 +207,41 @@ export default function EditarPartidaPage() {
     setCreatingPlayer(false);
   };
 
-  // Calcular fichas totales compradas por un jugador (buy-in + rebuys)
-  const getTotalChipsBought = (rebuys: string): number => {
-    const initial = parseFloat(buyIn) || 0;
-    return initial * (1 + parseRebuys(rebuys));
+  // Fichas de entrada de un jugador (buy-ins iniciales × fichas por buy-in)
+  const getInitialChips = (buyIns: string): number => {
+    const base = parseFloat(buyIn) || 0;
+    return base * parseBuyIns(buyIns);
   };
 
-  // Calcular ganancias/pérdidas (considerando rebuys)
-  const calculateProfit = (finalChips: string, rebuys: string): number => {
+  // Calcular fichas totales compradas por un jugador (entrada + rebuys)
+  const getTotalChipsBought = (buyIns: string, rebuys: string): number => {
+    const base = parseFloat(buyIn) || 0;
+    return getInitialChips(buyIns) + base * parseRebuys(rebuys);
+  };
+
+  // Calcular ganancias/pérdidas (considerando entrada y rebuys)
+  const calculateProfit = (finalChips: string, buyIns: string, rebuys: string): number => {
     const chips = parseFloat(finalChips) || 0;
-    const totalBought = getTotalChipsBought(rebuys);
+    const totalBought = getTotalChipsBought(buyIns, rebuys);
     const value = parseFloat(chipValue) || 0;
     return (chips - totalBought) * value;
   };
 
   // Calcular inversión total de un jugador en €
-  const calculateInvestment = (rebuys: string): number => {
-    const totalBought = getTotalChipsBought(rebuys);
+  const calculateInvestment = (buyIns: string, rebuys: string): number => {
+    const totalBought = getTotalChipsBought(buyIns, rebuys);
     const value = parseFloat(chipValue) || 0;
     return totalBought * value;
   };
 
-  // Calcular bote total (considerando rebuys de todos)
+  // Calcular bote total (considerando entradas y rebuys de todos)
   const totalPot = selectedPlayers.reduce((sum, p) => {
-    return sum + calculateInvestment(p.rebuys);
+    return sum + calculateInvestment(p.buy_ins, p.rebuys);
   }, 0);
 
-  // Verificar balance (considerando rebuys)
+  // Verificar balance (considerando entradas y rebuys)
   const totalFinalChips = selectedPlayers.reduce((sum, p) => sum + (parseFloat(p.final_chips) || 0), 0);
-  const expectedTotalChips = selectedPlayers.reduce((sum, p) => sum + getTotalChipsBought(p.rebuys), 0);
+  const expectedTotalChips = selectedPlayers.reduce((sum, p) => sum + getTotalChipsBought(p.buy_ins, p.rebuys), 0);
   const isBalanced = Math.abs(totalFinalChips - expectedTotalChips) < 0.01;
   const allPlayersHaveData = selectedPlayers.length >= 2 && 
     selectedPlayers.every(p => p.final_chips !== '' && parseFloat(p.final_chips) >= 0);
@@ -230,6 +270,7 @@ export default function EditarPartidaPage() {
     try {
       const playersData = selectedPlayers.map(p => ({
         player_id: p.player_id,
+        initial_chips: getInitialChips(p.buy_ins),
         final_chips: parseFloat(p.final_chips) || 0,
         rebuys: parseRebuys(p.rebuys),
       }));
@@ -487,11 +528,12 @@ export default function EditarPartidaPage() {
             {/* Lista de jugadores seleccionados */}
             <div className="space-y-3">
               {selectedPlayers.map((gp) => {
-                const profit = calculateProfit(gp.final_chips, gp.rebuys);
+                const profit = calculateProfit(gp.final_chips, gp.buy_ins, gp.rebuys);
                 const hasProfit = profit > 0;
                 const hasLoss = profit < 0;
-                const totalChips = getTotalChipsBought(gp.rebuys);
-                const investment = calculateInvestment(gp.rebuys);
+                const totalChips = getTotalChipsBought(gp.buy_ins, gp.rebuys);
+                const investment = calculateInvestment(gp.buy_ins, gp.rebuys);
+                const entryEuros = getInitialChips(gp.buy_ins) * (parseFloat(chipValue) || 0);
 
                 return (
                   <div
@@ -530,8 +572,50 @@ export default function EditarPartidaPage() {
                           </button>
                         </div>
 
-                        {/* Rebuys y Fichas finales */}
+                        {/* Entrada, Rebuys y Fichas finales */}
                         <div className="mt-3 grid grid-cols-2 gap-3">
+                          {/* Entrada (buy-ins iniciales) */}
+                          <div>
+                            <label className="block text-xs text-foreground-muted mb-1 flex items-center gap-1">
+                              <Coins className="w-3 h-3" />
+                              Entrada ({entryEuros.toFixed(2)}€)
+                            </label>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => updateBuyIns(gp.player_id, -1)}
+                                disabled={parseBuyIns(gp.buy_ins) <= 1}
+                                className="w-8 h-8 rounded-lg bg-background-secondary border border-border flex items-center justify-center text-foreground-muted hover:text-foreground disabled:opacity-30 transition-colors"
+                              >
+                                <Minus className="w-4 h-4" />
+                              </button>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={gp.buy_ins}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(',', '.');
+                                  // Permitir string vacío, números, y números con punto decimal
+                                  if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                    setBuyInsDirectly(gp.player_id, val);
+                                  }
+                                }}
+                                onBlur={(e) => {
+                                  // Al perder el foco, normalizar (mínimo 1 buy-in)
+                                  setBuyInsDirectly(gp.player_id, parseBuyIns(e.target.value).toString());
+                                }}
+                                className="w-12 h-8 text-center font-bold text-foreground bg-background border border-border rounded-lg focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => updateBuyIns(gp.player_id, 1)}
+                                className="w-8 h-8 rounded-lg bg-background-secondary border border-border flex items-center justify-center text-foreground-muted hover:text-foreground transition-colors"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
                           {/* Rebuys */}
                           <div>
                             <label className="block text-xs text-foreground-muted mb-1 flex items-center gap-1">
@@ -576,7 +660,7 @@ export default function EditarPartidaPage() {
                           </div>
 
                           {/* Fichas finales */}
-                          <div>
+                          <div className="col-span-2">
                             <label className="block text-xs text-foreground-muted mb-1">
                               Fichas finales
                             </label>

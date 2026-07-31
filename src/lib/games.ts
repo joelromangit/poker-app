@@ -41,6 +41,14 @@ export async function getGamesSummary(): Promise<GameSummary[]> {
       .map((gp: typeof gamePlayers[0]) => gp.players?.name)
       .filter((name: string | undefined): name is string => !!name);
 
+    // Resultado de cada participante (para el historial filtrado por jugador)
+    const playerResults = gamePlayers
+      .filter((gp: typeof gamePlayers[0]) => !!gp.players?.name)
+      .map((gp: typeof gamePlayers[0]) => ({
+        name: gp.players?.name as string,
+        profit: gp.profit,
+      }));
+
     return {
       id: game.id,
       created_at: game.created_at,
@@ -52,6 +60,7 @@ export async function getGamesSummary(): Promise<GameSummary[]> {
       worst_loser: worstLoser?.players?.name || '-',
       worst_loser_profit: worstLoser?.profit || 0,
       participants,
+      player_results: playerResults,
     };
   });
 }
@@ -82,15 +91,15 @@ export async function getGameById(id: string): Promise<Game | null> {
 export async function createGame(
   chipValue: number,
   buyIn: number,
-  players: { player_id: string; final_chips: number; rebuys: number }[],
+  players: { player_id: string; initial_chips: number; final_chips: number; rebuys: number }[],
   notes?: string,
   gameDate?: Date,
   name?: string
 ): Promise<Game | null> {
-  // Calcular el bote total incluyendo rebuys
-  // totalPot = Σ (buy_in × (1 + rebuys)) × chip_value
+  // Calcular el bote total incluyendo entrada personalizada y rebuys
+  // totalPot = Σ (initial_chips + buy_in × rebuys) × chip_value
   const totalPot = players.reduce((sum, p) => {
-    const totalChipsBought = buyIn * (1 + p.rebuys);
+    const totalChipsBought = p.initial_chips + buyIn * p.rebuys;
     return sum + (totalChipsBought * chipValue);
   }, 0);
 
@@ -116,15 +125,15 @@ export async function createGame(
 
   // 2. Crear los game_players con rebuys
   const gamePlayers = players.map(p => {
-    // Total de fichas compradas = buy_in × (1 + rebuys)
-    const totalChipsBought = buyIn * (1 + p.rebuys);
+    // Total de fichas compradas = initial_chips + buy_in × rebuys
+    const totalChipsBought = p.initial_chips + buyIn * p.rebuys;
     // Profit = (fichas_finales - fichas_compradas) × valor_ficha
     const profit = (p.final_chips - totalChipsBought) * chipValue;
 
     return {
       game_id: gameData.id,
       player_id: p.player_id,
-      initial_chips: buyIn,
+      initial_chips: p.initial_chips,
       final_chips: p.final_chips,
       rebuys: p.rebuys,
       profit: profit,
@@ -151,14 +160,14 @@ export async function updateGame(
   gameId: string,
   chipValue: number,
   buyIn: number,
-  players: { player_id: string; final_chips: number; rebuys: number }[],
+  players: { player_id: string; initial_chips: number; final_chips: number; rebuys: number }[],
   notes?: string,
   gameDate?: Date,
   name?: string
 ): Promise<Game | null> {
-  // Calcular el bote total incluyendo rebuys
+  // Calcular el bote total incluyendo entrada personalizada y rebuys
   const totalPot = players.reduce((sum, p) => {
-    const totalChipsBought = buyIn * (1 + p.rebuys);
+    const totalChipsBought = p.initial_chips + buyIn * p.rebuys;
     return sum + (totalChipsBought * chipValue);
   }, 0);
 
@@ -198,13 +207,13 @@ export async function updateGame(
 
   // 3. Crear los nuevos game_players
   const gamePlayers = players.map(p => {
-    const totalChipsBought = buyIn * (1 + p.rebuys);
+    const totalChipsBought = p.initial_chips + buyIn * p.rebuys;
     const profit = (p.final_chips - totalChipsBought) * chipValue;
 
     return {
       game_id: gameId,
       player_id: p.player_id,
-      initial_chips: buyIn,
+      initial_chips: p.initial_chips,
       final_chips: p.final_chips,
       rebuys: p.rebuys,
       profit: profit,
