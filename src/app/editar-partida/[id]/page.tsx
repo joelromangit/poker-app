@@ -5,13 +5,13 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import NumberInput from '@/components/NumberInput';
+import QuickBuyInControl from '@/components/QuickBuyInControl';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { getGameById, updateGame } from '@/lib/games';
 import { getPlayers, createPlayer, getAvatarColor } from '@/lib/players';
 import { Player, GameFormPlayer, Game } from '@/types';
 import { 
   Plus, 
-  Minus,
   Euro, 
   Coins, 
   Users, 
@@ -139,19 +139,7 @@ export default function EditarPartidaPage() {
     return parseFloat(normalized) || 0;
   };
 
-  // Actualizar rebuys con delta (+1 o -1)
-  const updateRebuys = (playerId: string, delta: number) => {
-    setSelectedPlayers(selectedPlayers.map(p => {
-      if (p.player_id === playerId) {
-        const currentValue = parseRebuys(p.rebuys);
-        const newRebuys = Math.max(0, Math.round((currentValue + delta) * 10) / 10);
-        return { ...p, rebuys: newRebuys.toString() };
-      }
-      return p;
-    }));
-  };
-
-  // Establecer rebuys directamente (para input manual)
+  // Establecer rebuys directamente (desde el selector rápido)
   const setRebuysDirectly = (playerId: string, value: string) => {
     setSelectedPlayers(selectedPlayers.map(p => {
       if (p.player_id === playerId) {
@@ -168,19 +156,7 @@ export default function EditarPartidaPage() {
     return num > 0 ? num : 1;
   };
 
-  // Actualizar buy-ins iniciales con delta (+1 o -1), mínimo 1
-  const updateBuyIns = (playerId: string, delta: number) => {
-    setSelectedPlayers(selectedPlayers.map(p => {
-      if (p.player_id === playerId) {
-        const currentValue = parseFloat(p.buy_ins) || 1;
-        const newBuyIns = Math.max(1, Math.round((currentValue + delta) * 10) / 10);
-        return { ...p, buy_ins: newBuyIns.toString() };
-      }
-      return p;
-    }));
-  };
-
-  // Establecer buy-ins directamente (para input manual)
+  // Establecer buy-ins iniciales directamente (desde el selector rápido)
   const setBuyInsDirectly = (playerId: string, value: string) => {
     setSelectedPlayers(selectedPlayers.map(p => {
       if (p.player_id === playerId) {
@@ -534,6 +510,8 @@ export default function EditarPartidaPage() {
                 const totalChips = getTotalChipsBought(gp.buy_ins, gp.rebuys);
                 const investment = calculateInvestment(gp.buy_ins, gp.rebuys);
                 const entryEuros = getInitialChips(gp.buy_ins) * (parseFloat(chipValue) || 0);
+                const baseEuros = (parseFloat(buyIn) || 0) * (parseFloat(chipValue) || 0);
+                const rebuysEuros = baseEuros * parseRebuys(gp.rebuys);
 
                 return (
                   <div
@@ -573,94 +551,37 @@ export default function EditarPartidaPage() {
                         </div>
 
                         {/* Entrada, Rebuys y Fichas finales */}
-                        <div className="mt-3 grid grid-cols-2 gap-3">
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {/* Entrada (buy-ins iniciales) */}
                           <div>
                             <label className="block text-xs text-foreground-muted mb-1 flex items-center gap-1">
                               <Coins className="w-3 h-3" />
-                              Entrada ({entryEuros.toFixed(2)}€)
+                              Entrada · {entryEuros.toFixed(2)}€
                             </label>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => updateBuyIns(gp.player_id, -1)}
-                                disabled={parseBuyIns(gp.buy_ins) <= 1}
-                                className="w-8 h-8 rounded-lg bg-background-secondary border border-border flex items-center justify-center text-foreground-muted hover:text-foreground disabled:opacity-30 transition-colors"
-                              >
-                                <Minus className="w-4 h-4" />
-                              </button>
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={gp.buy_ins}
-                                onChange={(e) => {
-                                  const val = e.target.value.replace(',', '.');
-                                  // Permitir string vacío, números, y números con punto decimal
-                                  if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                                    setBuyInsDirectly(gp.player_id, val);
-                                  }
-                                }}
-                                onBlur={(e) => {
-                                  // Al perder el foco, normalizar (mínimo 1 buy-in)
-                                  setBuyInsDirectly(gp.player_id, parseBuyIns(e.target.value).toString());
-                                }}
-                                className="w-12 h-8 text-center font-bold text-foreground bg-background border border-border rounded-lg focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => updateBuyIns(gp.player_id, 1)}
-                                className="w-8 h-8 rounded-lg bg-background-secondary border border-border flex items-center justify-center text-foreground-muted hover:text-foreground transition-colors"
-                              >
-                                <Plus className="w-4 h-4" />
-                              </button>
-                            </div>
+                            <QuickBuyInControl
+                              baseEuros={baseEuros}
+                              units={gp.buy_ins}
+                              onChange={(val) => setBuyInsDirectly(gp.player_id, val)}
+                              variant="entry"
+                            />
                           </div>
 
                           {/* Rebuys */}
                           <div>
                             <label className="block text-xs text-foreground-muted mb-1 flex items-center gap-1">
                               <RefreshCw className="w-3 h-3" />
-                              Rebuys
+                              Rebuys{rebuysEuros > 0 ? ` · ${rebuysEuros.toFixed(2)}€` : ''}
                             </label>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => updateRebuys(gp.player_id, -1)}
-                                disabled={parseRebuys(gp.rebuys) <= 0}
-                                className="w-8 h-8 rounded-lg bg-background-secondary border border-border flex items-center justify-center text-foreground-muted hover:text-foreground disabled:opacity-30 transition-colors"
-                              >
-                                <Minus className="w-4 h-4" />
-                              </button>
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={gp.rebuys}
-                                onChange={(e) => {
-                                  const val = e.target.value.replace(',', '.');
-                                  // Permitir string vacío, números, y números con punto decimal
-                                  if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                                    setRebuysDirectly(gp.player_id, val === '' ? '0' : val);
-                                  }
-                                }}
-                                onBlur={(e) => {
-                                  // Al perder el foco, limpiar el valor
-                                  const num = parseRebuys(e.target.value);
-                                  setRebuysDirectly(gp.player_id, Math.max(0, num).toString());
-                                }}
-                                className="w-12 h-8 text-center font-bold text-foreground bg-background border border-border rounded-lg focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => updateRebuys(gp.player_id, 1)}
-                                className="w-8 h-8 rounded-lg bg-background-secondary border border-border flex items-center justify-center text-foreground-muted hover:text-foreground transition-colors"
-                              >
-                                <Plus className="w-4 h-4" />
-                              </button>
-                            </div>
+                            <QuickBuyInControl
+                              baseEuros={baseEuros}
+                              units={gp.rebuys}
+                              onChange={(val) => setRebuysDirectly(gp.player_id, val)}
+                              variant="rebuy"
+                            />
                           </div>
 
                           {/* Fichas finales */}
-                          <div className="col-span-2">
+                          <div className="sm:col-span-2">
                             <label className="block text-xs text-foreground-muted mb-1">
                               Fichas finales
                             </label>
