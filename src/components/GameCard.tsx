@@ -16,8 +16,8 @@ import type { GameSummary } from "@/types";
 interface GameCardProps {
   game: GameSummary;
   index: number;
-  // Si se indica, la tarjeta muestra el resultado de este jugador
-  // en lugar del mejor/peor resultado de la partida
+  // Si se indica, la tarjeta destaca el resultado de este jugador
+  // junto al mejor/peor resultado de la partida
   highlightPlayer?: string;
 }
 
@@ -82,9 +82,17 @@ export default function GameCard({
           </div>
         </div>
 
-        {highlighted ? (
-          /* Resultado del jugador filtrado */
-          <div className="flex items-center justify-between py-3 border-t border-border">
+        {/* Resultado del jugador filtrado (añadido al mejor/peor del día) */}
+        {highlighted && (
+          <div
+            className={`mb-3 px-3 py-2.5 rounded-xl border flex items-center justify-between ${
+              highlighted.profit > 0
+                ? "bg-success/10 border-success/30"
+                : highlighted.profit < 0
+                  ? "bg-danger/10 border-danger/30"
+                  : "bg-background-secondary border-border"
+            }`}
+          >
             <div className="flex items-center gap-2">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -92,7 +100,7 @@ export default function GameCard({
                     ? "bg-success/20"
                     : highlighted.profit < 0
                       ? "bg-danger/20"
-                      : "bg-background-secondary"
+                      : "bg-background"
                 }`}
               >
                 <Medal
@@ -107,7 +115,7 @@ export default function GameCard({
               </div>
               <div>
                 <p className="text-xs text-foreground-muted">
-                  Resultado de {highlighted.name}
+                  {highlighted.name}
                 </p>
                 <p className="font-medium text-foreground">
                   {highlightedPosition}º de {game.player_count}
@@ -132,60 +140,52 @@ export default function GameCard({
               </span>
             </div>
           </div>
-        ) : (
-          <>
-            {/* Mejor resultado */}
-            <div className="flex items-center justify-between py-3 border-t border-border">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-warning/20 flex items-center justify-center">
-                  <Trophy className="w-4 h-4 text-warning" />
-                </div>
-                <div>
-                  <p className="text-xs text-foreground-muted">
-                    Mejor resultado
-                  </p>
-                  <p className="font-medium text-foreground">
-                    {game.top_winner || "-"}
-                  </p>
-                </div>
-              </div>
-              <div
-                className={`flex items-center gap-1 ${isWinner ? "text-success" : "text-foreground-muted"}`}
-              >
-                {isWinner && <TrendingUp className="w-4 h-4" />}
-                <span className="font-bold">
-                  {isWinner ? "+" : ""}
-                  {topWinnerProfit.toFixed(2)}€
-                </span>
-              </div>
-            </div>
-
-            {/* Peor resultado */}
-            <div className="flex items-center justify-between pt-3 border-t border-border">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-danger/20 flex items-center justify-center">
-                  <Frown className="w-4 h-4 text-danger" />
-                </div>
-                <div>
-                  <p className="text-xs text-foreground-muted">
-                    Peor resultado
-                  </p>
-                  <p className="font-medium text-foreground">
-                    {game.worst_loser || "-"}
-                  </p>
-                </div>
-              </div>
-              <div
-                className={`flex items-center gap-1 ${isLoser ? "text-danger" : "text-foreground-muted"}`}
-              >
-                {isLoser && <TrendingDown className="w-4 h-4" />}
-                <span className="font-bold">
-                  {worstLoserProfit.toFixed(2)}€
-                </span>
-              </div>
-            </div>
-          </>
         )}
+
+        {/* Mejor resultado */}
+        <div className="flex items-center justify-between py-3 border-t border-border">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-warning/20 flex items-center justify-center">
+              <Trophy className="w-4 h-4 text-warning" />
+            </div>
+            <div>
+              <p className="text-xs text-foreground-muted">Mejor resultado</p>
+              <p className="font-medium text-foreground">
+                {game.top_winner || "-"}
+              </p>
+            </div>
+          </div>
+          <div
+            className={`flex items-center gap-1 ${isWinner ? "text-success" : "text-foreground-muted"}`}
+          >
+            {isWinner && <TrendingUp className="w-4 h-4" />}
+            <span className="font-bold">
+              {isWinner ? "+" : ""}
+              {topWinnerProfit.toFixed(2)}€
+            </span>
+          </div>
+        </div>
+
+        {/* Peor resultado */}
+        <div className="flex items-center justify-between pt-3 border-t border-border">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-danger/20 flex items-center justify-center">
+              <Frown className="w-4 h-4 text-danger" />
+            </div>
+            <div>
+              <p className="text-xs text-foreground-muted">Peor resultado</p>
+              <p className="font-medium text-foreground">
+                {game.worst_loser || "-"}
+              </p>
+            </div>
+          </div>
+          <div
+            className={`flex items-center gap-1 ${isLoser ? "text-danger" : "text-foreground-muted"}`}
+          >
+            {isLoser && <TrendingDown className="w-4 h-4" />}
+            <span className="font-bold">{worstLoserProfit.toFixed(2)}€</span>
+          </div>
+        </div>
       </div>
     </Link>
   );
