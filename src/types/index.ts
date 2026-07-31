@@ -42,6 +42,7 @@ export interface GameFormPlayer {
   player_id: string;
   player: Player;
   final_chips: string;
+  buy_ins: string; // Número de buy-ins iniciales como string para permitir decimales (1 = entrada estándar, 2 = entrada doble...)
   rebuys: string; // Número de rebuys como string para permitir decimales (0 = solo buy-in inicial)
 }
 

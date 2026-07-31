@@ -188,10 +188,10 @@ export default function PartidaPage() {
     return text;
   }
 
-  // Calcular fichas totales compradas (buy-in + rebuys)
+  // Calcular fichas totales compradas (entrada personalizada + rebuys)
   function getTotalChipsBought(gp: GamePlayer): number {
     if (!game) return 0;
-    return game.buy_in * (1 + gp.rebuys);
+    return gp.initial_chips + game.buy_in * gp.rebuys;
   }
 
   // Calcular distribución de pagos (quién paga a quién)
@@ -521,9 +521,11 @@ export default function PartidaPage() {
                           ({chipDiff > 0 ? '+' : ''}{chipDiff})
                         </span>
                       </p>
-                      {gp.rebuys > 0 && (
+                      {(gp.rebuys > 0 || gp.initial_chips !== game.buy_in) && (
                         <p className="text-xs text-foreground-muted">
-                          Inversión: {(totalChipsBought * game.chip_value).toFixed(2)}€ ({gp.rebuys} rebuy{gp.rebuys > 1 ? 's' : ''})
+                          Inversión: {(totalChipsBought * game.chip_value).toFixed(2)}€
+                          {' '}(entrada {(gp.initial_chips * game.chip_value).toFixed(2)}€
+                          {gp.rebuys > 0 ? ` + ${gp.rebuys} rebuy${gp.rebuys > 1 ? 's' : ''}` : ''})
                         </p>
                       )}
                     </div>
@@ -703,7 +705,7 @@ export default function PartidaPage() {
           {/* Info adicional */}
           <div className="mt-6 p-4 bg-background-secondary rounded-xl text-center">
             <p className="text-sm text-foreground-muted">
-              Buy-in: <span className="font-medium text-foreground">{game.buy_in} fichas</span> × <span className="font-medium text-foreground">{game.chip_value}€</span> = <span className="font-medium text-accent">{(game.buy_in * game.chip_value).toFixed(2)}€</span> por entrada
+              Buy-in base: <span className="font-medium text-foreground">{game.buy_in} fichas</span> × <span className="font-medium text-foreground">{game.chip_value}€</span> = <span className="font-medium text-accent">{(game.buy_in * game.chip_value).toFixed(2)}€</span> por buy-in
             </p>
           </div>
         </div>
