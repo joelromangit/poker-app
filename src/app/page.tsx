@@ -7,10 +7,12 @@ import Header from '@/components/Header';
 import GameCard from '@/components/GameCard';
 import EmptyState from '@/components/EmptyState';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import AggregateSummary from '@/components/AggregateSummary';
+import { computeGamesAggregate } from '@/lib/aggregate';
 import { getGamesSummary } from '@/lib/games';
 import { getHomeStats, HomeStats, getPlayers, getPlayerStats, getAvatarColor } from '@/lib/players';
 import { GameSummary, Player, PlayerStats } from '@/types';
-import { Trophy, RefreshCw, Spade, FileWarning, ArrowRight, X, Search, Users, ChevronDown, TrendingUp, TrendingDown } from 'lucide-react';
+import { Trophy, RefreshCw, Spade, FileWarning, ArrowRight, X, Search, Users, ChevronDown, TrendingUp, TrendingDown, Sigma } from 'lucide-react';
 import { getDraft, clearDraft } from './nueva-partida/page';
 import { InstallBanner } from '@/components/InstallPrompt';
 
@@ -39,6 +41,10 @@ function HomeContent() {
   const [playerFilter, setPlayerFilter] = useState<string>('');
   const [showPlayerDropdown, setShowPlayerDropdown] = useState(false);
   const [filteredPlayerStats, setFilteredPlayerStats] = useState<PlayerStats | null>(null);
+  // Modo selección de partidas para ver su acumulado
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showAggregate, setShowAggregate] = useState(false);
 
   // Leer el parámetro de jugador de la URL
   useEffect(() => {
@@ -150,6 +156,25 @@ function HomeContent() {
   const selectPlayer = (playerName: string) => {
     setPlayerFilter(playerName);
     setShowPlayerDropdown(false);
+  };
+
+  // Entrar/salir del modo selección para el acumulado
+  const toggleSelectionMode = () => {
+    if (selectionMode) {
+      setSelectedIds(new Set());
+      setShowAggregate(false);
+    }
+    setSelectionMode(!selectionMode);
+  };
+
+  // Marcar/desmarcar una partida en el modo selección
+  const toggleGameSelected = (gameId: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(gameId)) next.delete(gameId);
+      else next.add(gameId);
+      return next;
+    });
   };
 
   // Calcular estadísticas
@@ -381,7 +406,21 @@ function HomeContent() {
                   Historial de Partidas
                 </h2>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Modo acumulado: seleccionar partidas y ver el total */}
+                  <button
+                    onClick={toggleSelectionMode}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors ${
+                      selectionMode
+                        ? 'bg-accent/20 border-accent text-accent'
+                        : 'bg-background-card border-border text-foreground-muted hover:border-accent/50'
+                    }`}
+                    title="Selecciona varias partidas para ver su resultado acumulado"
+                  >
+                    <Sigma className="w-4 h-4" />
+                    <span className="text-sm font-medium">Acumulado</span>
+                  </button>
+
                   {/* Filtro por jugador */}
                   <div className="relative flex items-center gap-1">
                     <button
@@ -503,13 +542,16 @@ function HomeContent() {
                   <p className="text-foreground-muted">No se encontraron partidas</p>
                 </div>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${selectionMode ? 'pb-24' : ''}`}>
                   {filteredGames.map((game, index) => (
                     <GameCard
                       key={game.id}
                       game={game}
                       index={index}
                       highlightPlayer={playerFilter || undefined}
+                      selectionMode={selectionMode}
+                      selected={selectedIds.has(game.id)}
+                      onToggleSelect={() => toggleGameSelected(game.id)}
                     />
                   ))}
                 </div>
@@ -517,6 +559,55 @@ function HomeContent() {
             </>
           )}
         </section>
+
+        {/* Barra de acciones del modo acumulado */}
+        {selectionMode && (
+          <div className="fixed bottom-0 inset-x-0 z-40 bg-background-card/95 backdrop-blur border-t border-border">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">
+                  {selectedIds.size} partida{selectedIds.size !== 1 ? 's' : ''} seleccionada{selectedIds.size !== 1 ? 's' : ''}
+                </p>
+                <button
+                  onClick={() => {
+                    const allSelected = filteredGames.length > 0 && filteredGames.every(g => selectedIds.has(g.id));
+                    setSelectedIds(allSelected ? new Set() : new Set(filteredGames.map(g => g.id)));
+                  }}
+                  className="text-xs text-primary hover:underline"
+                >
+                  {filteredGames.length > 0 && filteredGames.every(g => selectedIds.has(g.id))
+                    ? 'Quitar todas'
+                    : `Seleccionar las ${filteredGames.length} visibles`}
+                </button>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={toggleSelectionMode}
+                  className="px-3 py-2 rounded-xl border border-border text-foreground-muted hover:text-foreground text-sm transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => setShowAggregate(true)}
+                  disabled={selectedIds.size < 2}
+                  className="btn-primary px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Sigma className="w-4 h-4" />
+                  Ver acumulado
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Resumen acumulado de las partidas seleccionadas */}
+        {showAggregate && (
+          <AggregateSummary
+            aggregate={computeGamesAggregate(games, selectedIds)}
+            players={players}
+            onClose={() => setShowAggregate(false)}
+          />
+        )}
       </main>
 
       {/* Footer */}
