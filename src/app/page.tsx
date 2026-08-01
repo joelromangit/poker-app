@@ -462,7 +462,7 @@ function HomeContent() {
                             setShowPlayerDropdown(false);
                           }}
                         />
-                        <div className="absolute right-0 top-full mt-2 bg-background-card border border-border rounded-xl shadow-lg z-50 w-48 max-h-64 overflow-y-auto animate-fade-in">
+                        <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 bg-background-card border border-border rounded-xl shadow-lg z-50 w-48 max-h-64 overflow-y-auto animate-fade-in">
                           {players.map(player => (
                             <button
                               key={player.id}
@@ -497,7 +497,7 @@ function HomeContent() {
                   </div>
 
                   {/* Buscador */}
-                  <div className="relative">
+                  <div className="relative flex-1 min-w-[150px] sm:flex-initial">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
                     <input
                       type="text"
