@@ -2,6 +2,7 @@
 
 import {
   Calendar,
+  Check,
   Frown,
   Medal,
   Minus,
@@ -19,12 +20,19 @@ interface GameCardProps {
   // Si se indica, la tarjeta destaca el resultado de este jugador
   // junto al mejor/peor resultado de la partida
   highlightPlayer?: string;
+  // Modo selección para el acumulado: la tarjeta se marca en lugar de navegar
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 export default function GameCard({
   game,
   index,
   highlightPlayer,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
 }: GameCardProps) {
   const date = new Date(game.created_at);
   const formattedDate = date.toLocaleDateString("es-ES", {
@@ -55,12 +63,27 @@ export default function GameCard({
         .findIndex((pr) => pr.name === highlighted.name) + 1
     : 0;
 
-  return (
-    <Link href={`/partida/${game.id}`}>
+  const card = (
       <div
-        className="card-hover bg-background-card rounded-2xl p-5 border border-border hover:border-primary/50 cursor-pointer animate-fade-in"
+        className={`relative card-hover bg-background-card rounded-2xl p-5 border cursor-pointer animate-fade-in ${
+          selected
+            ? "border-primary ring-1 ring-primary"
+            : "border-border hover:border-primary/50"
+        }`}
         style={{ animationDelay: `${index * 0.05}s` }}
       >
+        {/* Marcador de selección para el acumulado */}
+        {selectionMode && (
+          <div
+            className={`absolute -top-2 -right-2 z-10 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+              selected
+                ? "bg-primary border-primary text-white"
+                : "bg-background-card border-border text-transparent"
+            }`}
+          >
+            <Check className="w-4 h-4" strokeWidth={3} />
+          </div>
+        )}
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
@@ -187,6 +210,19 @@ export default function GameCard({
           </div>
         </div>
       </div>
-    </Link>
   );
+
+  if (selectionMode) {
+    return (
+      <button
+        type="button"
+        onClick={onToggleSelect}
+        className="block w-full text-left"
+      >
+        {card}
+      </button>
+    );
+  }
+
+  return <Link href={`/partida/${game.id}`}>{card}</Link>;
 }
