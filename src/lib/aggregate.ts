@@ -69,3 +69,51 @@ export function computeGamesAggregate(
 
   return { games: selected.length, totalPot, from, to, players };
 }
+
+// Un pago para liquidar el acumulado: quién paga a quién y cuánto
+export interface SettlementPayment {
+  from: string;
+  to: string;
+  amount: number;
+}
+
+// Calcular los pagos que saldan los balances acumulados con el mínimo de
+// transacciones (greedy: el mayor deudor paga al mayor acreedor)
+export function computeSettlement(
+  players: ReadonlyArray<{ name: string; balance: number }>,
+): SettlementPayment[] {
+  const debtors = players
+    .filter((p) => p.balance < 0)
+    .map((p) => ({ name: p.name, pending: -p.balance }))
+    .sort((a, b) => b.pending - a.pending);
+
+  const creditors = players
+    .filter((p) => p.balance > 0)
+    .map((p) => ({ name: p.name, pending: p.balance }))
+    .sort((a, b) => b.pending - a.pending);
+
+  const payments: SettlementPayment[] = [];
+
+  let i = 0;
+  let j = 0;
+  while (i < debtors.length && j < creditors.length) {
+    const debtor = debtors[i];
+    const creditor = creditors[j];
+    const amount = Math.min(debtor.pending, creditor.pending);
+
+    if (amount > 0.01) {
+      payments.push({
+        from: debtor.name,
+        to: creditor.name,
+        amount: Math.round(amount * 100) / 100,
+      });
+    }
+
+    debtor.pending -= amount;
+    creditor.pending -= amount;
+    if (debtor.pending < 0.01) i++;
+    if (creditor.pending < 0.01) j++;
+  }
+
+  return payments;
+}

@@ -1,6 +1,16 @@
 "use client";
 
-import { Calendar, Coins, Frown, Sigma, Trophy, Users, X } from "lucide-react";
+import {
+  ArrowRight,
+  Calendar,
+  Coins,
+  Frown,
+  Sigma,
+  Trophy,
+  Users,
+  Wallet,
+  X,
+} from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -10,7 +20,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { GamesAggregate } from "@/lib/aggregate";
+import { computeSettlement, type GamesAggregate } from "@/lib/aggregate";
 import { getAvatarColor } from "@/lib/players";
 import type { Player } from "@/types";
 
@@ -57,6 +67,8 @@ export default function AggregateSummary({
     balance: Number(p.balance.toFixed(2)),
   }));
   const chartHeight = Math.max(140, aggregate.players.length * 44 + 30);
+
+  const settlement = computeSettlement(aggregate.players);
 
   return (
     <div
@@ -227,6 +239,86 @@ export default function AggregateSummary({
               );
             })}
           </div>
+
+          {/* Liquidación: quién paga a quién para saldar el acumulado */}
+          {settlement.length > 0 && (
+            <div className="mt-5">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-1">
+                <Wallet className="w-4 h-4 text-primary" />
+                Quién paga a quién
+              </h3>
+              <p className="text-xs text-foreground-muted mb-3">
+                {settlement.length} transaccion
+                {settlement.length !== 1 ? "es" : ""} para saldar todo el
+                acumulado
+              </p>
+              <div className="space-y-2">
+                {settlement.map((payment) => {
+                  const fromPlayer = playerByName.get(
+                    payment.from.toLowerCase(),
+                  );
+                  const toPlayer = playerByName.get(payment.to.toLowerCase());
+                  return (
+                    <div
+                      key={`${payment.from}-${payment.to}`}
+                      className="flex items-center gap-2 p-3 bg-background rounded-xl border border-border"
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {fromPlayer?.avatar_url ? (
+                          <img
+                            src={fromPlayer.avatar_url}
+                            alt={payment.from}
+                            className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                            style={{
+                              backgroundColor: getAvatarColor(
+                                fromPlayer?.avatar_color,
+                              ),
+                            }}
+                          >
+                            {payment.from.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="font-medium text-foreground truncate">
+                          {payment.from}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 px-3 py-1.5 bg-danger/10 text-danger rounded-full font-bold text-sm flex-shrink-0">
+                        <ArrowRight className="w-4 h-4" />
+                        <span>{payment.amount.toFixed(2)}€</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+                        <span className="font-medium text-foreground truncate">
+                          {payment.to}
+                        </span>
+                        {toPlayer?.avatar_url ? (
+                          <img
+                            src={toPlayer.avatar_url}
+                            alt={payment.to}
+                            className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                            style={{
+                              backgroundColor: getAvatarColor(
+                                toPlayer?.avatar_color,
+                              ),
+                            }}
+                          >
+                            {payment.to.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
