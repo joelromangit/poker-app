@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeGamesAggregate } from "./aggregate";
+import { computeGamesAggregate, computeSettlement } from "./aggregate";
 import type { GameSummary } from "@/types";
 
 function makeGame(
@@ -87,5 +87,57 @@ describe("computeGamesAggregate", () => {
     );
     const dani = agg.players[0];
     expect(dani).toMatchObject({ games: 1, wins: 0, losses: 0, balance: 0 });
+  });
+});
+
+describe("computeSettlement", () => {
+  it("un deudor paga a un acreedor", () => {
+    const payments = computeSettlement([
+      { name: "Ana", balance: 10 },
+      { name: "Beto", balance: -10 },
+    ]);
+    expect(payments).toEqual([{ from: "Beto", to: "Ana", amount: 10 }]);
+  });
+
+  it("liquida el acumulado con el mínimo de transacciones", () => {
+    const payments = computeSettlement([
+      { name: "Ana", balance: 30 },
+      { name: "Beto", balance: 5 },
+      { name: "Carla", balance: -20 },
+      { name: "Dani", balance: -15 },
+    ]);
+    expect(payments).toEqual([
+      { from: "Carla", to: "Ana", amount: 20 },
+      { from: "Dani", to: "Ana", amount: 10 },
+      { from: "Dani", to: "Beto", amount: 5 },
+    ]);
+  });
+
+  it("los pagos cubren exactamente lo que cada uno debe y cobra", () => {
+    const players = [
+      { name: "Ana", balance: 12.5 },
+      { name: "Beto", balance: -4.25 },
+      { name: "Carla", balance: -8.25 },
+      { name: "Dani", balance: 0 },
+    ];
+    const payments = computeSettlement(players);
+    const net = new Map(players.map((p) => [p.name, 0]));
+    for (const payment of payments) {
+      net.set(payment.from, (net.get(payment.from) ?? 0) - payment.amount);
+      net.set(payment.to, (net.get(payment.to) ?? 0) + payment.amount);
+    }
+    for (const player of players) {
+      expect(net.get(player.name)).toBeCloseTo(player.balance, 2);
+    }
+  });
+
+  it("ignora jugadores en tablas y restos de céntimos", () => {
+    expect(computeSettlement([{ name: "Ana", balance: 0 }])).toEqual([]);
+    expect(
+      computeSettlement([
+        { name: "Ana", balance: 0.005 },
+        { name: "Beto", balance: -0.005 },
+      ]),
+    ).toEqual([]);
   });
 });
