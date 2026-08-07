@@ -1,8 +1,12 @@
+// Fichas que vale la ciega grande (Small Blind: 5 fichas | Big Blind: 10)
+export const BIG_BLIND_CHIPS = 10;
+
 // Info mínima de una partida para el histórico
 export interface HistoryGameInfo {
   id: string;
   name: string | null;
   date: string; // ISO
+  bigBlind: number; // valor de la ciega grande en € (10 fichas * valor ficha)
 }
 
 // Info mínima de un jugador para el histórico
@@ -91,6 +95,37 @@ export function computeHistoryStats(profits: number[]): HistoryStats {
     avgLoss: losses > 0 ? totalLost / losses : 0,
     bestStreak,
     worstStreak,
+  };
+}
+
+// Estadísticas expresadas en ciegas grandes (BBs) en lugar de dinero.
+// Cada partida se convierte con SU ciega, así los resultados de mesas con
+// distinto valor de ficha son comparables entre sí.
+export interface BBStats {
+  balanceBB: number; // suma de BBs ganadas/perdidas
+  averageBB: number; // media de BBs por partida
+  bestBB: number; // mejor resultado en BBs (0 si nunca ganó)
+  worstBB: number; // peor resultado en BBs (0 si nunca perdió)
+}
+
+// Calcular estadísticas en BBs a partir de las entradas del histórico.
+// Ignora entradas cuya partida no tenga una ciega válida (> 0).
+export function computeBBStats(
+  entries: ReadonlyArray<HistoryEntry>,
+): BBStats {
+  const profitsBB = entries
+    .filter((e) => e.game.bigBlind > 0)
+    .map((e) => e.profit / e.game.bigBlind);
+
+  const balanceBB = profitsBB.reduce((sum, p) => sum + p, 0);
+  const winsBB = profitsBB.filter((p) => p > 0);
+  const lossesBB = profitsBB.filter((p) => p < 0);
+
+  return {
+    balanceBB,
+    averageBB: profitsBB.length > 0 ? balanceBB / profitsBB.length : 0,
+    bestBB: winsBB.length > 0 ? Math.max(...winsBB) : 0,
+    worstBB: lossesBB.length > 0 ? Math.min(...lossesBB) : 0,
   };
 }
 

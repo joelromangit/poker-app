@@ -142,12 +142,69 @@ export async function getPlayerStats(playerId: string): Promise<PlayerStats | nu
   };
 }
 
-// Obtener estadísticas de todos los jugadores
-export async function getAllPlayersStats(): Promise<PlayerStats[]> {
-  const players = await getPlayers();
-  const statsPromises = players.map(p => getPlayerStats(p.id));
-  const stats = await Promise.all(statsPromises);
-  return stats.filter((s): s is PlayerStats => s !== null);
+// Obtener estadísticas de todos los jugadores, opcionalmente limitadas a un
+// rango de fechas de partida (formato YYYY-MM-DD, ambos inclusive)
+export async function getAllPlayersStats(
+  from?: string,
+  to?: string,
+): Promise<PlayerStats[]> {
+  const [players, { data, error }] = await Promise.all([
+    getPlayers(),
+    db.from('game_players').select('player_id, profit, game:games (created_at)'),
+  ]);
+
+  if (error || !data) {
+    console.error('Error fetching players stats:', error);
+    return [];
+  }
+
+  const fromTime = from ? new Date(`${from}T00:00:00`).getTime() : null;
+  const toTime = to ? new Date(`${to}T23:59:59.999`).getTime() : null;
+
+  const profitsByPlayer = new Map<string, number[]>();
+  for (const gp of data) {
+    if (!gp.player_id || !gp.game) continue;
+    const time = new Date(gp.game.created_at).getTime();
+    if (fromTime !== null && time < fromTime) continue;
+    if (toTime !== null && time > toTime) continue;
+
+    const profits = profitsByPlayer.get(gp.player_id);
+    if (profits) profits.push(gp.profit);
+    else profitsByPlayer.set(gp.player_id, [gp.profit]);
+  }
+
+  return players.map(player => {
+    const profits = profitsByPlayer.get(player.id) ?? [];
+    if (profits.length === 0) {
+      return {
+        player,
+        total_games: 0,
+        total_balance: 0,
+        best_game: 0,
+        worst_game: 0,
+        average_per_game: 0,
+        wins: 0,
+        losses: 0,
+        win_rate: 0,
+      };
+    }
+
+    const totalBalance = profits.reduce((sum, p) => sum + p, 0);
+    const wins = profits.filter(p => p > 0).length;
+    const losses = profits.filter(p => p < 0).length;
+
+    return {
+      player,
+      total_games: profits.length,
+      total_balance: totalBalance,
+      best_game: Math.max(...profits),
+      worst_game: Math.min(...profits),
+      average_per_game: totalBalance / profits.length,
+      wins,
+      losses,
+      win_rate: (wins / profits.length) * 100,
+    };
+  });
 }
 
 // Obtener estadísticas para la página principal

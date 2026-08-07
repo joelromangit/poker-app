@@ -1,6 +1,22 @@
 import { db } from './supabase';
 import { Game, GameSummary } from '@/types';
 
+// Años con partidas registradas, ordenados de más reciente a más antiguo
+export async function getGameYears(): Promise<number[]> {
+  const { data, error } = await db.from('games').select('created_at');
+
+  if (error || !data) {
+    console.error('Error fetching game years:', error);
+    return [];
+  }
+
+  const years = new Set<number>();
+  for (const game of data) {
+    years.add(new Date(game.created_at).getFullYear());
+  }
+  return Array.from(years).sort((a, b) => b - a);
+}
+
 // Obtener resumen de partidas para la lista
 export async function getGamesSummary(): Promise<GameSummary[]> {
   // Obtener partidas con jugadores

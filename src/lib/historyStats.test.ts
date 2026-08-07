@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  computeBBStats,
   computeHeadToHead,
   computeHistoryStats,
   filterEntriesByDate,
@@ -8,9 +9,14 @@ import {
   type PlayerHistory,
 } from "./historyStats";
 
-function makeEntry(gameId: string, date: string, profit: number): HistoryEntry {
+function makeEntry(
+  gameId: string,
+  date: string,
+  profit: number,
+  bigBlind = 0.1,
+): HistoryEntry {
   return {
-    game: { id: gameId, name: null, date },
+    game: { id: gameId, name: null, date, bigBlind },
     profit,
     rebuys: 0,
   };
@@ -165,5 +171,37 @@ describe("filterEntriesByDate", () => {
   it("filtra un año concreto", () => {
     const result = filterEntriesByDate(entries, "2025-01-01", "2025-12-31");
     expect(result.map((e) => e.game.id)).toEqual(["g1", "g2"]);
+  });
+});
+
+describe("computeBBStats", () => {
+  it("convierte cada partida con su propia ciega", () => {
+    // Partida con ciega 0.10€ (ficha 0.01) y otra con ciega 0.20€ (ficha 0.02)
+    const stats = computeBBStats([
+      makeEntry("g1", "2026-01-01T21:00:00", 10, 0.1), // +100 BB
+      makeEntry("g2", "2026-01-02T21:00:00", -10, 0.2), // -50 BB
+    ]);
+    expect(stats.balanceBB).toBeCloseTo(50);
+    expect(stats.averageBB).toBeCloseTo(25);
+    expect(stats.bestBB).toBeCloseTo(100);
+    expect(stats.worstBB).toBeCloseTo(-50);
+  });
+
+  it("ignora partidas sin ciega válida", () => {
+    const stats = computeBBStats([
+      makeEntry("g1", "2026-01-01T21:00:00", 10, 0.1),
+      makeEntry("g2", "2026-01-02T21:00:00", 99, 0),
+    ]);
+    expect(stats.balanceBB).toBeCloseTo(100);
+    expect(stats.averageBB).toBeCloseTo(100);
+  });
+
+  it("sin entradas devuelve ceros", () => {
+    expect(computeBBStats([])).toEqual({
+      balanceBB: 0,
+      averageBB: 0,
+      bestBB: 0,
+      worstBB: 0,
+    });
   });
 });
