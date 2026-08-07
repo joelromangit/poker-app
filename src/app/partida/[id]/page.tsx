@@ -37,6 +37,13 @@ import {
 import { uploadLoserPhoto, compressImage, deleteLoserPhoto } from '@/lib/storage';
 import { updateGameLoserPhoto } from '@/lib/games';
 import ImageCropper from '@/components/ImageCropper';
+import AllInSection from '@/components/AllInSection';
+import {
+  addAllIn,
+  type AllInEntry,
+  deleteAllIn,
+  getGameAllIns,
+} from '@/lib/allIns';
 
 export default function PartidaPage() {
   const params = useParams();
@@ -56,6 +63,9 @@ export default function PartidaPage() {
   const [loserCropperImage, setLoserCropperImage] = useState<string | null>(null);
   const [showLoserCropper, setShowLoserCropper] = useState(false);
 
+  // All-ins registrados en la partida
+  const [allIns, setAllIns] = useState<AllInEntry[]>([]);
+
   useEffect(() => {
     loadGame();
   }, [params.id]);
@@ -63,10 +73,29 @@ export default function PartidaPage() {
   async function loadGame() {
     if (!params.id) return;
     setLoading(true);
-    const data = await getGameById(params.id as string);
+    const [data, allInsData] = await Promise.all([
+      getGameById(params.id as string),
+      getGameAllIns(params.id as string),
+    ]);
     setGame(data);
+    setAllIns(allInsData);
     setLoading(false);
   }
+
+  // Registrar un all-in a posteriori (correcciones tras la partida)
+  const handleAddAllIn = async (entry: AllInEntry) => {
+    if (!game) return;
+    const saved = await addAllIn(game.id, entry);
+    if (saved) setAllIns(prev => [...prev, saved]);
+  };
+
+  const handleDeleteAllIn = async (entry: AllInEntry, index: number) => {
+    if (entry.id) {
+      const ok = await deleteAllIn(entry.id);
+      if (!ok) return;
+    }
+    setAllIns(prev => prev.filter((_, i) => i !== index));
+  };
 
   async function handleDelete() {
     if (!game) return;
@@ -690,6 +719,22 @@ export default function PartidaPage() {
               </div>
             );
           })()}
+
+          {/* All-ins de la partida */}
+          <div className="mt-6 animate-fade-in" style={{ animationDelay: '0.25s' }}>
+            <AllInSection
+              players={game.game_players.map(gp => ({
+                id: gp.player_id,
+                name: gp.player?.name || '?',
+                color: getAvatarColor(gp.player?.avatar_color),
+                avatarUrl: gp.player?.avatar_url || undefined,
+              }))}
+              entries={allIns}
+              onAdd={handleAddAllIn}
+              onDelete={handleDeleteAllIn}
+              subtitle="Los momentos de gloria (y de vergüenza) de la noche"
+            />
+          </div>
 
           {/* Notas */}
           {game.notes && (

@@ -9,6 +9,64 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      all_ins: {
+        Row: {
+          caller_id: string | null
+          created_at: string
+          game_id: string
+          id: string
+          pusher_equity: number | null
+          pusher_id: string
+          result: string
+          run_it_twice: boolean
+          street: string
+        }
+        Insert: {
+          caller_id?: string | null
+          created_at?: string
+          game_id: string
+          id?: string
+          pusher_equity?: number | null
+          pusher_id: string
+          result: string
+          run_it_twice?: boolean
+          street?: string
+        }
+        Update: {
+          caller_id?: string | null
+          created_at?: string
+          game_id?: string
+          id?: string
+          pusher_equity?: number | null
+          pusher_id?: string
+          result?: string
+          run_it_twice?: boolean
+          street?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "all_ins_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "all_ins_pusher_id_fkey"
+            columns: ["pusher_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "all_ins_caller_id_fkey"
+            columns: ["caller_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chip_sets: {
         Row: {
           created_at: string
