@@ -43,6 +43,7 @@ import {
 type ResultFilter = "all" | "wins" | "losses";
 type GameScope = "common" | "all";
 type ChartMode = "perGame" | "cumulative";
+type ChartUnit = "euros" | "bb"; // unidad de la gráfica: dinero o ciegas grandes
 type PeriodFilter = "all" | "custom" | number; // número = año concreto
 
 interface ChartPoint {
@@ -74,6 +75,7 @@ function HistoryTooltip({
   payload,
   label,
   fullLabelByLabel,
+  unit = "euros",
 }: {
   active?: boolean;
   payload?: ReadonlyArray<{
@@ -83,6 +85,7 @@ function HistoryTooltip({
   }>;
   label?: string | number;
   fullLabelByLabel: Map<string, string>;
+  unit?: ChartUnit;
 }) {
   if (!active || !payload || payload.length === 0) return null;
 
@@ -112,7 +115,9 @@ function HistoryTooltip({
             <span
               className={`ml-auto font-semibold ${profitColorClass(entry.value as number)}`}
             >
-              {formatEuros(entry.value as number)}
+              {unit === "bb"
+                ? formatBB(entry.value as number)
+                : formatEuros(entry.value as number)}
             </span>
           </div>
         ))}
@@ -171,6 +176,7 @@ function HistoricoContent() {
   const [resultFilter, setResultFilter] = useState<ResultFilter>("all");
   const [gameScope, setGameScope] = useState<GameScope>("common");
   const [chartMode, setChartMode] = useState<ChartMode>("perGame");
+  const [chartUnit, setChartUnit] = useState<ChartUnit>("euros");
   const [showDetailTable, setShowDetailTable] = useState(false);
 
   useEffect(() => {
@@ -298,7 +304,17 @@ function HistoricoContent() {
           record = { game: entry.game, profits: new Map() };
           gamesById.set(entry.game.id, record);
         }
-        record.profits.set(history.player.name, entry.profit);
+        // En modo BB cada partida se convierte con su propia ciega
+        if (chartUnit === "bb") {
+          if (entry.game.bigBlind > 0) {
+            record.profits.set(
+              history.player.name,
+              Math.round((entry.profit / entry.game.bigBlind) * 10) / 10,
+            );
+          }
+        } else {
+          record.profits.set(history.player.name, entry.profit);
+        }
       }
     }
 
@@ -343,7 +359,7 @@ function HistoricoContent() {
     });
 
     return { chartData: points, fullLabelByLabel: labels };
-  }, [chartHistories, chartMode]);
+  }, [chartHistories, chartMode, chartUnit]);
 
   // Cara a cara (solo con exactamente 2 jugadores)
   const headToHead = useMemo(() => {
@@ -581,6 +597,20 @@ function HistoricoContent() {
                       onClick={() => setChartMode("cumulative")}
                     >
                       Acumulado
+                    </SegmentedButton>
+                  </div>
+                  <div className="flex items-center gap-1 bg-background rounded-lg p-1 w-fit">
+                    <SegmentedButton
+                      active={chartUnit === "euros"}
+                      onClick={() => setChartUnit("euros")}
+                    >
+                      €
+                    </SegmentedButton>
+                    <SegmentedButton
+                      active={chartUnit === "bb"}
+                      onClick={() => setChartUnit("bb")}
+                    >
+                      BB
                     </SegmentedButton>
                   </div>
                 </div>
@@ -854,6 +884,11 @@ function HistoricoContent() {
                         {chartMode === "cumulative"
                           ? "Evolución acumulada"
                           : "Resultado por partida"}
+                        {chartUnit === "bb" && (
+                          <span className="text-xs font-normal px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                            en BBs
+                          </span>
+                        )}
                       </h2>
                       <span className="text-xs text-foreground-muted">
                         {chartData.length} partida
@@ -894,8 +929,10 @@ function HistoricoContent() {
                                 fill: "var(--foreground-muted)",
                                 fontSize: 11,
                               }}
-                              tickFormatter={(value: number) => `${value}€`}
-                              width={50}
+                              tickFormatter={(value: number) =>
+                                chartUnit === "bb" ? `${value}BB` : `${value}€`
+                              }
+                              width={chartUnit === "bb" ? 58 : 50}
                             />
                             <ReferenceLine
                               y={0}
@@ -908,6 +945,7 @@ function HistoricoContent() {
                                 <HistoryTooltip
                                   {...props}
                                   fullLabelByLabel={fullLabelByLabel}
+                                  unit={chartUnit}
                                 />
                               )}
                             />
