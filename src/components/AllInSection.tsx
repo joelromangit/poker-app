@@ -1,7 +1,8 @@
 "use client";
 
-import { Flame, Plus, Repeat2, Trash2, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Flame, Loader2, Plus, Repeat2, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import CardsInput, { CardChip } from "@/components/CardPicker";
 import {
   type AllInEntry,
   type AllInResult,
@@ -12,6 +13,13 @@ import {
   STREET_META,
   type Street,
 } from "@/lib/allInStats";
+import {
+  BOARD_SIZE_BY_STREET,
+  type Card,
+  formatCards,
+  parseCards,
+} from "@/lib/cards";
+import { computeAllInEquity } from "@/lib/equity";
 
 // Jugador disponible para registrar all-ins
 export interface AllInPlayer {
@@ -30,7 +38,6 @@ interface AllInSectionProps {
 }
 
 const STREETS: Street[] = ["preflop", "flop", "turn", "river"];
-const EQUITY_PRESETS = [20, 35, 50, 65, 80];
 
 function PlayerAvatar({
   player,
@@ -258,6 +265,9 @@ export default function AllInSection({
               const badge = getAllInBadge(entry.equity, entry.result);
               const street = STREET_META[entry.street];
               const result = RESULT_META[entry.result];
+              const pusherCards = parseCards(entry.pusherCards);
+              const callerCards = parseCards(entry.callerCards);
+              const boardCards = parseCards(entry.boardCards);
               return (
                 <div
                   key={entry.id ?? `${entry.at}-${index}`}
@@ -311,6 +321,34 @@ export default function AllInSection({
                           })}
                         </span>
                       </div>
+                      {/* Cartas de la jugada */}
+                      {pusherCards.length > 0 && (
+                        <div className="flex items-center gap-1 mt-2 flex-wrap">
+                          {pusherCards.map((card) => (
+                            <CardChip key={card} card={card} size="sm" />
+                          ))}
+                          {callerCards.length > 0 && (
+                            <>
+                              <span className="text-[10px] text-foreground-muted mx-0.5">
+                                vs
+                              </span>
+                              {callerCards.map((card) => (
+                                <CardChip key={card} card={card} size="sm" />
+                              ))}
+                            </>
+                          )}
+                          {boardCards.length > 0 && (
+                            <>
+                              <span className="text-[10px] text-foreground-muted ml-1.5 mr-0.5">
+                                board
+                              </span>
+                              {boardCards.map((card) => (
+                                <CardChip key={card} card={card} size="sm" />
+                              ))}
+                            </>
+                          )}
+                        </div>
+                      )}
                       {/* Barra de equity */}
                       {entry.equity !== null && (
                         <div className="mt-2">
@@ -391,13 +429,56 @@ function AllInForm({
   const [callerId, setCallerId] = useState<string | null>(null);
   const [callerIsMulti, setCallerIsMulti] = useState(false);
   const [street, setStreet] = useState<Street>("preflop");
-  const [equity, setEquity] = useState(50);
-  const [equityUnknown, setEquityUnknown] = useState(false);
+  const [cards, setCards] = useState<Record<string, Card[]>>({
+    pusher: [],
+    caller: [],
+    board: [],
+  });
+  const [computedEquity, setComputedEquity] = useState<number | null>(null);
+  const [computing, setComputing] = useState(false);
   const [runItTwice, setRunItTwice] = useState(false);
   const [result, setResult] = useState<AllInResult | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const canSave = pusherId !== null && result !== null && !saving;
+  const boardSize = BOARD_SIZE_BY_STREET[street];
+  const canUseCards = !callerIsMulti && callerId !== null;
+  const cardsComplete =
+    canUseCards &&
+    cards.pusher.length === 2 &&
+    cards.caller.length === 2 &&
+    cards.board.length === boardSize;
+
+  // Al cambiar de calle, recortar el board si sobra
+  const handleStreetChange = (next: Street) => {
+    setStreet(next);
+    const size = BOARD_SIZE_BY_STREET[next];
+    setCards((prev) =>
+      prev.board.length > size
+        ? { ...prev, board: prev.board.slice(0, size) }
+        : prev,
+    );
+  };
+
+  // Calcular la equity automáticamente cuando las cartas están completas
+  useEffect(() => {
+    if (!cardsComplete) {
+      setComputedEquity(null);
+      setComputing(false);
+      return;
+    }
+    let cancelled = false;
+    setComputing(true);
+    computeAllInEquity(cards.pusher, cards.caller, cards.board).then((eq) => {
+      if (cancelled) return;
+      setComputedEquity(eq);
+      setComputing(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [cardsComplete, cards]);
+
+  const canSave = pusherId !== null && result !== null && !saving && !computing;
 
   const handleSave = async () => {
     if (!pusherId || !result) return;
@@ -406,12 +487,19 @@ function AllInForm({
       pusherId,
       callerId: callerIsMulti ? null : callerId,
       street,
-      equity: equityUnknown ? null : equity,
+      equity: cardsComplete ? computedEquity : null,
       runItTwice,
       result,
       at: new Date().toISOString(),
+      pusherCards: cardsComplete ? formatCards(cards.pusher) : null,
+      callerCards: cardsComplete ? formatCards(cards.caller) : null,
+      boardCards:
+        cardsComplete && boardSize > 0 ? formatCards(cards.board) : null,
     });
   };
+
+  const pusherName = players.find((p) => p.id === pusherId)?.name ?? "All-in";
+  const callerName = players.find((p) => p.id === callerId)?.name ?? "Paga";
 
   return (
     <div
@@ -502,7 +590,7 @@ function AllInForm({
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setStreet(s)}
+                  onClick={() => handleStreetChange(s)}
                   className={`py-2 rounded-xl border-2 text-center transition-all ${
                     street === s
                       ? "border-primary bg-primary/10"
@@ -524,62 +612,68 @@ function AllInForm({
             </div>
           </div>
 
-          {/* Equity al momento del call */}
+          {/* Cartas: la equity se calcula sola */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-foreground">
-                % del que va all-in al ver el call
+            <p className="text-sm font-medium text-foreground mb-1">
+              Cartas 🃏{" "}
+              <span className="text-xs font-normal text-foreground-muted">
+                (opcional: con ellas la equity se calcula sola)
+              </span>
+            </p>
+            {callerIsMulti ? (
+              <p className="text-xs text-foreground-muted bg-background rounded-xl border border-border p-3">
+                Con varios pagadores no se calcula la equity. Elige un único
+                pagador si quieres meter las cartas.
               </p>
-              <button
-                type="button"
-                onClick={() => setEquityUnknown(!equityUnknown)}
-                className={`text-xs px-2 py-1 rounded-lg border transition-colors ${
-                  equityUnknown
-                    ? "bg-primary/15 border-primary text-primary"
-                    : "border-border text-foreground-muted"
-                }`}
-              >
-                No lo sé 🤷
-              </button>
-            </div>
-            {!equityUnknown && (
+            ) : !callerId ? (
+              <p className="text-xs text-foreground-muted bg-background rounded-xl border border-border p-3">
+                Elige quién paga el all-in para poder meter las cartas.
+              </p>
+            ) : (
               <>
-                <p className="text-center text-2xl font-bold text-foreground mb-1">
-                  <span
-                    className={equity >= 50 ? "text-success" : "text-danger"}
-                  >
-                    {equity}%
-                  </span>
-                  <span className="text-sm font-medium text-foreground-muted">
-                    {" "}
-                    vs {100 - equity}%
-                  </span>
-                </p>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={equity}
-                  onChange={(e) => setEquity(parseInt(e.target.value, 10))}
-                  className="w-full accent-[var(--primary)]"
+                <CardsInput
+                  groups={[
+                    { key: "pusher", label: `🚀 ${pusherName}`, max: 2 },
+                    { key: "caller", label: `💰 ${callerName}`, max: 2 },
+                    ...(boardSize > 0
+                      ? [{ key: "board", label: "Board", max: boardSize }]
+                      : []),
+                  ]}
+                  value={cards}
+                  onChange={setCards}
                 />
-                <div className="flex justify-between gap-1 mt-2">
-                  {EQUITY_PRESETS.map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setEquity(preset)}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                        equity === preset
-                          ? "bg-primary text-white border-primary"
-                          : "bg-background border-border text-foreground-muted hover:text-foreground"
-                      }`}
-                    >
-                      {preset}%
-                    </button>
-                  ))}
-                </div>
+
+                {/* Resultado del cálculo */}
+                {computing && (
+                  <p className="flex items-center justify-center gap-2 text-sm text-foreground-muted mt-3">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    Calculando equity...
+                  </p>
+                )}
+                {!computing && computedEquity !== null && (
+                  <div className="mt-3">
+                    <p className="text-center text-xl font-bold mb-1">
+                      <span
+                        className={
+                          computedEquity >= 50 ? "text-success" : "text-danger"
+                        }
+                      >
+                        {computedEquity.toFixed(0)}%
+                      </span>
+                      <span className="text-sm font-medium text-foreground-muted">
+                        {" "}
+                        {pusherName} vs {callerName}{" "}
+                        {(100 - computedEquity).toFixed(0)}%
+                      </span>
+                    </p>
+                    <div className="h-2 rounded-full bg-danger/40 overflow-hidden">
+                      <div
+                        className="h-full bg-success rounded-full"
+                        style={{ width: `${computedEquity}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
