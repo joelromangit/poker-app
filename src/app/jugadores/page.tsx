@@ -2,6 +2,7 @@
 
 import {
   ArrowUpDown,
+  Calendar,
   Check,
   EyeOff,
   History,
@@ -18,8 +19,10 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Header from "@/components/Header";
+import SegmentedButton from "@/components/SegmentedButton";
+import { getGameYears } from "@/lib/games";
 import {
   createPlayer,
   getAllPlayersStats,
@@ -41,6 +44,7 @@ import { EditPlayerModal, NewPlayerModal, WhosGayModal } from "./modals";
 import RankingChart from "./RankingChart";
 
 type SortBy = "balance" | "winrate";
+type PeriodFilter = "all" | "custom" | number; // número = año concreto
 
 export default function JugadoresPage() {
   const router = useRouter();
@@ -60,6 +64,13 @@ export default function JugadoresPage() {
   // Orden del ranking
   const [sortBy, setSortBy] = useState<SortBy>("balance");
 
+  // Filtro de periodo del ranking (todo, un año o rango personalizado)
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [filteringStats, setFilteringStats] = useState(false);
+
   // Visibilidad de columnas (persistida en DB)
   const [columnsVisibility, setColumnsVisibility] =
     useState<PlayersColumnsVisibility>(DEFAULT_PLAYERS_COLUMNS);
@@ -72,20 +83,35 @@ export default function JugadoresPage() {
   // Who's Gay modal
   const [showGayModal, setShowGayModal] = useState(false);
 
+  // Rango de fechas efectivo según el filtro de periodo
+  const effectiveRange = useMemo((): { from?: string; to?: string } => {
+    if (periodFilter === "all") return {};
+    if (periodFilter === "custom") {
+      return { from: dateFrom || undefined, to: dateTo || undefined };
+    }
+    return { from: `${periodFilter}-01-01`, to: `${periodFilter}-12-31` };
+  }, [periodFilter, dateFrom, dateTo]);
+
+  // Referencia al rango actual para que loadData lo respete sin re-crearse
+  const rangeRef = useRef(effectiveRange);
+  rangeRef.current = effectiveRange;
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [playersData, statsData, visibility, hiddenIds] = await Promise.all(
-        [
+      const range = rangeRef.current;
+      const [playersData, statsData, visibility, hiddenIds, years] =
+        await Promise.all([
           getPlayers(),
-          getAllPlayersStats(),
+          getAllPlayersStats(range.from, range.to),
           getPlayersColumnsVisibility(),
           getRankingHiddenPlayerIds(),
-        ],
-      );
+          getGameYears(),
+        ]);
       setPlayers(playersData);
       setColumnsVisibility(visibility);
       setHiddenPlayerIds(new Set(hiddenIds));
+      setAvailableYears(years);
 
       const statsMap = new Map<string, PlayerStats>();
       for (const s of statsData) {
@@ -101,6 +127,34 @@ export default function JugadoresPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Recargar solo las estadísticas al cambiar el filtro de periodo
+  const isFirstRange = useRef(true);
+  useEffect(() => {
+    if (isFirstRange.current) {
+      isFirstRange.current = false;
+      return;
+    }
+    let cancelled = false;
+    async function reloadStats() {
+      setFilteringStats(true);
+      const statsData = await getAllPlayersStats(
+        effectiveRange.from,
+        effectiveRange.to,
+      );
+      if (cancelled) return;
+      const statsMap = new Map<string, PlayerStats>();
+      for (const s of statsData) {
+        statsMap.set(s.player.id, s);
+      }
+      setStats(statsMap);
+      setFilteringStats(false);
+    }
+    reloadStats();
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveRange]);
 
   const handleToggleColumn = useCallback((key: PlayerColumnKey) => {
     setColumnsVisibility((prev) => {
@@ -259,6 +313,68 @@ export default function JugadoresPage() {
             />
           )}
 
+          {/* Filtro de periodo del ranking */}
+          {players.length > 0 && (
+            <div className="mb-6 p-4 bg-background-card rounded-xl border border-border">
+              <div className="flex items-start gap-3 flex-wrap">
+                <span className="text-xs text-foreground-muted font-medium pt-2 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5" />
+                  Periodo
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1 bg-background rounded-lg p-1 flex-wrap w-fit">
+                    <SegmentedButton
+                      active={periodFilter === "all"}
+                      onClick={() => setPeriodFilter("all")}
+                    >
+                      Todo
+                    </SegmentedButton>
+                    {availableYears.map((year) => (
+                      <SegmentedButton
+                        key={year}
+                        active={periodFilter === year}
+                        onClick={() => setPeriodFilter(year)}
+                      >
+                        {year}
+                      </SegmentedButton>
+                    ))}
+                    <SegmentedButton
+                      active={periodFilter === "custom"}
+                      onClick={() => setPeriodFilter("custom")}
+                    >
+                      Fechas
+                    </SegmentedButton>
+                  </div>
+                  {periodFilter === "custom" && (
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(e) => setDateFrom(e.target.value)}
+                        className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm focus:border-primary outline-none"
+                      />
+                      <span className="text-foreground-muted text-sm">a</span>
+                      <input
+                        type="date"
+                        value={dateTo}
+                        onChange={(e) => setDateTo(e.target.value)}
+                        className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm focus:border-primary outline-none"
+                      />
+                    </div>
+                  )}
+                  {periodFilter !== "all" && (
+                    <p className="text-xs text-foreground-muted mt-2">
+                      El ranking muestra solo las partidas del periodo elegido
+                    </p>
+                  )}
+                </div>
+                {filteringStats && (
+                  <Loader2 className="w-4 h-4 animate-spin text-primary mt-2" />
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Botón nuevo jugador cuando no hay jugadores */}
           {players.length === 0 && !loading && (
             <div className="mb-6">
@@ -315,7 +431,9 @@ export default function JugadoresPage() {
           ) : (
             <>
               {/* Ranking de jugadores con partidas */}
-              <div className="grid gap-3">
+              <div
+                className={`grid gap-3 transition-opacity ${filteringStats ? "opacity-60" : ""}`}
+              >
                 {sortedPlayersWithGames.map((player, index) => (
                   <PlayerRankingCard
                     key={player.id}
@@ -364,6 +482,7 @@ export default function JugadoresPage() {
                     <Users className="w-5 h-5 text-foreground-muted" />
                     <h2 className="text-lg font-semibold text-foreground-muted">
                       Jugadores sin partidas
+                      {periodFilter !== "all" ? " en el periodo" : ""}
                     </h2>
                     <span className="text-sm text-foreground-muted bg-background px-2 py-0.5 rounded-full">
                       {sortedPlayersWithoutGames.length}

@@ -28,7 +28,9 @@ import {
 } from "recharts";
 import Header from "@/components/Header";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import SegmentedButton from "@/components/SegmentedButton";
 import {
+  computeBBStats,
   computeHeadToHead,
   computeHistoryStats,
   filterEntriesByDate,
@@ -55,35 +57,15 @@ function formatEuros(value: number, withSign = true): string {
   return `${sign}${value.toFixed(2)}€`;
 }
 
+function formatBB(value: number, withSign = true): string {
+  const sign = withSign && value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(1)} BB`;
+}
+
 function profitColorClass(value: number): string {
   if (value > 0) return "text-success";
   if (value < 0) return "text-danger";
   return "text-foreground-muted";
-}
-
-// Botón de grupo segmentado reutilizable
-function SegmentedButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${
-        active
-          ? "bg-primary text-white"
-          : "text-foreground-muted hover:text-foreground hover:bg-background-secondary"
-      }`}
-    >
-      {children}
-    </button>
-  );
 }
 
 // Tooltip personalizado del gráfico
@@ -283,6 +265,7 @@ function HistoricoContent() {
       filteredHistories.map((history) => ({
         player: history.player,
         stats: computeHistoryStats(history.entries.map((e) => e.profit)),
+        bbStats: computeBBStats(history.entries),
       })),
     [filteredHistories],
   );
@@ -735,7 +718,7 @@ function HistoricoContent() {
                       statsByPlayer.length > 1 ? "sm:grid-cols-2" : ""
                     }`}
                   >
-                    {statsByPlayer.map(({ player, stats }) => (
+                    {statsByPlayer.map(({ player, stats, bbStats }) => (
                       <section
                         key={player.id}
                         className="bg-background-card rounded-2xl p-4 sm:p-5 border border-border"
@@ -774,6 +757,11 @@ function HistoricoContent() {
                             >
                               {formatEuros(stats.balance)}
                             </p>
+                            <p
+                              className={`text-xs font-semibold ${profitColorClass(bbStats.balanceBB)}`}
+                            >
+                              {formatBB(bbStats.balanceBB)}
+                            </p>
                             <p className="text-[10px] text-foreground-muted">
                               balance
                             </p>
@@ -785,16 +773,19 @@ function HistoricoContent() {
                             label="Media/partida"
                             value={formatEuros(stats.average)}
                             valueClass={profitColorClass(stats.average)}
+                            sub={formatBB(bbStats.averageBB)}
                           />
                           <StatItem
                             label="Máx. ganancia"
                             value={formatEuros(stats.best)}
                             valueClass="text-success"
+                            sub={formatBB(bbStats.bestBB)}
                           />
                           <StatItem
                             label="Máx. pérdida"
                             value={formatEuros(stats.worst, false)}
                             valueClass="text-danger"
+                            sub={formatBB(bbStats.worstBB, false)}
                           />
                           <StatItem
                             label="En positivo"
