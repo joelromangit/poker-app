@@ -12,6 +12,9 @@ interface AllInRow {
   run_it_twice: boolean;
   result: string;
   created_at: string;
+  pusher_cards?: string | null;
+  caller_cards?: string | null;
+  board_cards?: string | null;
 }
 
 function rowToEntry(row: AllInRow): AllInEntry {
@@ -24,6 +27,9 @@ function rowToEntry(row: AllInRow): AllInEntry {
     runItTwice: row.run_it_twice,
     result: (row.result as AllInResult) || "lost",
     at: row.created_at,
+    pusherCards: row.pusher_cards ?? null,
+    callerCards: row.caller_cards ?? null,
+    boardCards: row.board_cards ?? null,
   };
 }
 
@@ -58,6 +64,9 @@ export async function addAllIn(
       run_it_twice: entry.runItTwice,
       result: entry.result,
       created_at: entry.at,
+      pusher_cards: entry.pusherCards ?? null,
+      caller_cards: entry.callerCards ?? null,
+      board_cards: entry.boardCards ?? null,
     })
     .select()
     .single();
@@ -98,6 +107,9 @@ export async function saveGameAllIns(
       run_it_twice: entry.runItTwice,
       result: entry.result,
       created_at: entry.at,
+      pusher_cards: entry.pusherCards ?? null,
+      caller_cards: entry.callerCards ?? null,
+      board_cards: entry.boardCards ?? null,
     })),
   );
 

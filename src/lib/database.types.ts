@@ -11,10 +11,13 @@ export type Database = {
     Tables: {
       all_ins: {
         Row: {
+          board_cards: string | null
+          caller_cards: string | null
           caller_id: string | null
           created_at: string
           game_id: string
           id: string
+          pusher_cards: string | null
           pusher_equity: number | null
           pusher_id: string
           result: string
@@ -22,10 +25,13 @@ export type Database = {
           street: string
         }
         Insert: {
+          board_cards?: string | null
+          caller_cards?: string | null
           caller_id?: string | null
           created_at?: string
           game_id: string
           id?: string
+          pusher_cards?: string | null
           pusher_equity?: number | null
           pusher_id: string
           result: string
@@ -33,10 +39,13 @@ export type Database = {
           street?: string
         }
         Update: {
+          board_cards?: string | null
+          caller_cards?: string | null
           caller_id?: string | null
           created_at?: string
           game_id?: string
           id?: string
+          pusher_cards?: string | null
           pusher_equity?: number | null
           pusher_id?: string
           result?: string

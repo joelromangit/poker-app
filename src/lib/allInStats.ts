@@ -30,6 +30,10 @@ export interface AllInEntry {
   runItTwice: boolean;
   result: AllInResult;
   at: string; // ISO
+  // Cartas en notación compacta ("AsKd"); opcionales
+  pusherCards?: string | null;
+  callerCards?: string | null;
+  boardCards?: string | null;
 }
 
 // Momento dramático del all-in según equity y resultado
