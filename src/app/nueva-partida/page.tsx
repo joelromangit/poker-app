@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import AllInSection from '@/components/AllInSection';
 import Header from '@/components/Header';
 import NumberInput from '@/components/NumberInput';
 import QuickBuyInControl from '@/components/QuickBuyInControl';
+import { saveGameAllIns, type AllInEntry } from '@/lib/allIns';
 import { createGame } from '@/lib/games';
 import { getPlayers, createPlayer, getAvatarColor } from '@/lib/players';
 import { Player, GameFormPlayer } from '@/types';
@@ -86,6 +88,7 @@ interface GameDraft {
   savedAt: string;
   gameMode?: GameMode;
   cashGameFormat?: CashGameFormat;
+  allIns?: AllInEntry[]; // All-ins registrados durante la partida en vivo
 }
 
 // Función para guardar borrador
@@ -132,6 +135,7 @@ export default function NuevaPartidaPage() {
   const [chipValue, setChipValue] = useState('0.01');
   const [buyIn, setBuyIn] = useState('1000');
   const [selectedPlayers, setSelectedPlayers] = useState<GameFormPlayer[]>([]);
+  const [allIns, setAllIns] = useState<AllInEntry[]>([]);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -199,6 +203,12 @@ export default function NuevaPartidaPage() {
         }
       }
       setSelectedPlayers(restoredPlayers);
+
+      // Restaurar all-ins (solo los de jugadores que siguen en la partida)
+      const restoredIds = new Set(restoredPlayers.map(p => p.player_id));
+      setAllIns(
+        (draft.allIns || []).filter(a => restoredIds.has(a.pusherId)),
+      );
     } else {
       // Si no hay borrador, usar fecha y hora actuales y formato por defecto
       setGameDate(currentDate);
@@ -216,8 +226,8 @@ export default function NuevaPartidaPage() {
     if (!draftLoaded) return; // No guardar hasta que se haya cargado
     
     // Solo guardar si hay datos significativos
-    const hasData = selectedPlayers.length > 0 || notes.trim() !== '';
-    
+    const hasData = selectedPlayers.length > 0 || notes.trim() !== '' || allIns.length > 0;
+
     if (hasData) {
       saveDraft({
         gameName,
@@ -234,12 +244,13 @@ export default function NuevaPartidaPage() {
         gameTime,
         gameMode,
         cashGameFormat,
+        allIns,
       });
     } else {
       // Si no hay datos, limpiar el borrador
       clearDraft();
     }
-  }, [gameName, chipValue, buyIn, selectedPlayers, notes, gameDate, gameTime, gameMode, cashGameFormat, draftLoaded]);
+  }, [gameName, chipValue, buyIn, selectedPlayers, allIns, notes, gameDate, gameTime, gameMode, cashGameFormat, draftLoaded]);
 
   // Descartar borrador
   const handleDiscardDraft = () => {
@@ -251,6 +262,7 @@ export default function NuevaPartidaPage() {
     setChipValue(defaultFormat.chipValue.toString());
     setBuyIn(defaultFormat.buyIn.toString());
     setSelectedPlayers([]);
+    setAllIns([]);
     setNotes('');
     // Establecer fecha y hora actuales
     const currentNow = new Date();
@@ -308,6 +320,12 @@ export default function NuevaPartidaPage() {
   // Eliminar jugador de la partida
   const removePlayerFromGame = (playerId: string) => {
     setSelectedPlayers(selectedPlayers.filter(p => p.player_id !== playerId));
+    // Sus all-ins ya no tienen sentido; los pagados por él pasan a "varios"
+    setAllIns(prev =>
+      prev
+        .filter(a => a.pusherId !== playerId)
+        .map(a => (a.callerId === playerId ? { ...a, callerId: null } : a)),
+    );
   };
 
   // Actualizar fichas finales
@@ -448,6 +466,10 @@ export default function NuevaPartidaPage() {
       );
 
       if (game) {
+        // Guardar los all-ins registrados durante la partida
+        if (allIns.length > 0) {
+          await saveGameAllIns(game.id, allIns);
+        }
         // Limpiar borrador al guardar exitosamente
         clearDraft();
         router.push(`/partida/${game.id}`);
@@ -998,6 +1020,26 @@ export default function NuevaPartidaPage() {
               </div>
             )}
           </section>
+
+          {/* All-ins de la noche (se guardan con el borrador) */}
+          {selectedPlayers.length >= 2 && (
+            <div className="mb-6">
+              <AllInSection
+                players={selectedPlayers.map(p => ({
+                  id: p.player_id,
+                  name: p.player?.name || '?',
+                  color: getAvatarColor(p.player?.avatar_color),
+                  avatarUrl: p.player?.avatar_url || undefined,
+                }))}
+                entries={allIns}
+                onAdd={entry => setAllIns(prev => [...prev, entry])}
+                onDelete={(_entry, index) =>
+                  setAllIns(prev => prev.filter((_, i) => i !== index))
+                }
+                subtitle="Se guardan en el borrador y con la partida"
+              />
+            </div>
+          )}
 
           {/* Notas */}
           <section className="bg-background-card rounded-2xl p-5 sm:p-6 border border-border mb-6">
