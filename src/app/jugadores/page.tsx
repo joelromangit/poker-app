@@ -915,6 +915,28 @@ function PlayerRankingCard({
               {stats?.total_games || 0} partidas
             </button>
           )}
+          {/* Forma reciente: últimas 5 partidas (la más nueva a la derecha) */}
+          {stats && stats.recent_form.length > 0 && (
+            <div
+              className="flex items-center gap-0.5 mt-1"
+              title="Forma reciente (últimas 5 partidas)"
+            >
+              {stats.recent_form.map((formResult, i) => (
+                <span
+                  key={`${player.id}-form-${i}`}
+                  className={`w-4 h-4 rounded text-[9px] font-bold text-white flex items-center justify-center ${
+                    formResult === "W"
+                      ? "bg-success"
+                      : formResult === "L"
+                        ? "bg-danger"
+                        : "bg-foreground-muted/50"
+                  } ${i === stats.recent_form.length - 1 ? "ring-1 ring-foreground/40" : ""}`}
+                >
+                  {formResult === "W" ? "G" : formResult === "L" ? "P" : "E"}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Stats */}

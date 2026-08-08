@@ -374,6 +374,23 @@ function HistoricoContent() {
     return computeHeadToHead(a, b, gameIds);
   }, [isDuel, selectedHistories, effectiveRange]);
 
+  // Matriz de dominación: cara a cara de todos contra todos (3+ jugadores)
+  const dominationMatrix = useMemo(() => {
+    if (selectedHistories.length < 3) return null;
+    return selectedHistories.map((rowHistory) =>
+      selectedHistories.map((colHistory) => {
+        if (rowHistory.player.id === colHistory.player.id) return null;
+        const dateFiltered = filterEntriesByDate(
+          rowHistory.entries,
+          effectiveRange.from,
+          effectiveRange.to,
+        );
+        const gameIds = new Set(dateFiltered.map((e) => e.game.id));
+        return computeHeadToHead(rowHistory, colHistory, gameIds);
+      }),
+    );
+  }, [selectedHistories, effectiveRange]);
+
   const hasChartData = chartData.length > 0 && selectedHistories.length > 0;
 
   return (
@@ -875,6 +892,100 @@ function HistoricoContent() {
                       </section>
                     ))}
                   </div>
+
+                  {/* Matriz de dominación (3+ jugadores) */}
+                  {dominationMatrix && (
+                    <section className="bg-background-card rounded-2xl p-4 sm:p-5 border border-border mb-4">
+                      <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+                        <Swords className="w-4 h-4 text-accent" />
+                        Matriz de dominación
+                      </h2>
+                      <p className="text-xs text-foreground-muted mb-3">
+                        Victorias directas por pareja en sus partidas en común
+                        (fila vs columna)
+                      </p>
+                      <div className="overflow-x-auto -mx-1 px-1">
+                        <table className="w-full border-separate border-spacing-1">
+                          <thead>
+                            <tr>
+                              <th aria-label="Jugador" />
+                              {selectedHistories.map((history) => (
+                                <th
+                                  key={history.player.id}
+                                  className="text-center pb-1"
+                                >
+                                  {history.player.avatarUrl ? (
+                                    <img
+                                      src={history.player.avatarUrl}
+                                      alt={history.player.name}
+                                      title={history.player.name}
+                                      className="w-7 h-7 rounded-full object-cover mx-auto"
+                                    />
+                                  ) : (
+                                    <div
+                                      className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold mx-auto"
+                                      style={{
+                                        backgroundColor: history.player.color,
+                                      }}
+                                      title={history.player.name}
+                                    >
+                                      {history.player.name
+                                        .charAt(0)
+                                        .toUpperCase()}
+                                    </div>
+                                  )}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedHistories.map((rowHistory, rowIndex) => (
+                              <tr key={rowHistory.player.id}>
+                                <td className="text-xs font-medium text-foreground pr-1 whitespace-nowrap max-w-[90px] truncate">
+                                  {rowHistory.player.name}
+                                </td>
+                                {selectedHistories.map((colHistory, colIndex) => {
+                                  const cell =
+                                    dominationMatrix[rowIndex][colIndex];
+                                  if (!cell) {
+                                    return (
+                                      <td
+                                        key={colHistory.player.id}
+                                        className="text-center text-foreground-muted/40 bg-background rounded-lg py-2 text-xs"
+                                      >
+                                        —
+                                      </td>
+                                    );
+                                  }
+                                  const leads = cell.aWins > cell.bWins;
+                                  const trails = cell.aWins < cell.bWins;
+                                  return (
+                                    <td
+                                      key={colHistory.player.id}
+                                      className={`text-center rounded-lg py-2 text-xs font-bold ${
+                                        cell.commonGames === 0
+                                          ? "bg-background text-foreground-muted/40"
+                                          : leads
+                                            ? "bg-success/15 text-success"
+                                            : trails
+                                              ? "bg-danger/15 text-danger"
+                                              : "bg-background text-foreground-muted"
+                                      }`}
+                                      title={`${rowHistory.player.name} ${cell.aWins} - ${cell.bWins} ${colHistory.player.name} (${cell.commonGames} en común${cell.draws > 0 ? `, ${cell.draws} empates` : ""})`}
+                                    >
+                                      {cell.commonGames === 0
+                                        ? "·"
+                                        : `${cell.aWins}-${cell.bWins}`}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
+                  )}
 
                   {/* Gráfico */}
                   <section className="bg-background-card rounded-2xl p-4 sm:p-6 border border-border mb-4">

@@ -1,4 +1,5 @@
 import { db, Player as DbPlayer } from './supabase';
+import { computeRecentForm } from './historyStats';
 import { Player, PlayerStats, CreatePlayerData } from '@/types';
 
 
@@ -97,10 +98,10 @@ export async function getPlayerStats(playerId: string): Promise<PlayerStats | nu
   const player = await getPlayerById(playerId);
   if (!player) return null;
 
-  // Obtener todas las participaciones del jugador
+  // Obtener todas las participaciones del jugador con la fecha de la partida
   const { data: gamePlayersData, error } = await db
     .from('game_players')
-    .select('*')
+    .select('profit, game:games (created_at)')
     .eq('player_id', playerId);
 
   if (error) {
@@ -121,10 +122,17 @@ export async function getPlayerStats(playerId: string): Promise<PlayerStats | nu
       wins: 0,
       losses: 0,
       win_rate: 0,
+      recent_form: [],
     };
   }
 
-  const profits = gamePlayers.map(gp => gp.profit);
+  // Profits en orden cronológico para la forma reciente
+  const chronological = [...gamePlayers].sort(
+    (a, b) =>
+      new Date(a.game?.created_at ?? 0).getTime() -
+      new Date(b.game?.created_at ?? 0).getTime(),
+  );
+  const profits = chronological.map(gp => gp.profit);
   const totalBalance = profits.reduce((sum, p) => sum + p, 0);
   const wins = profits.filter(p => p > 0).length;
   const losses = profits.filter(p => p < 0).length;
@@ -139,6 +147,7 @@ export async function getPlayerStats(playerId: string): Promise<PlayerStats | nu
     wins,
     losses,
     win_rate: (wins / gamePlayers.length) * 100,
+    recent_form: computeRecentForm(profits),
   };
 }
 
@@ -161,21 +170,21 @@ export async function getAllPlayersStats(
   const fromTime = from ? new Date(`${from}T00:00:00`).getTime() : null;
   const toTime = to ? new Date(`${to}T23:59:59.999`).getTime() : null;
 
-  const profitsByPlayer = new Map<string, number[]>();
+  const rowsByPlayer = new Map<string, { profit: number; time: number }[]>();
   for (const gp of data) {
     if (!gp.player_id || !gp.game) continue;
     const time = new Date(gp.game.created_at).getTime();
     if (fromTime !== null && time < fromTime) continue;
     if (toTime !== null && time > toTime) continue;
 
-    const profits = profitsByPlayer.get(gp.player_id);
-    if (profits) profits.push(gp.profit);
-    else profitsByPlayer.set(gp.player_id, [gp.profit]);
+    const rows = rowsByPlayer.get(gp.player_id);
+    if (rows) rows.push({ profit: gp.profit, time });
+    else rowsByPlayer.set(gp.player_id, [{ profit: gp.profit, time }]);
   }
 
   return players.map(player => {
-    const profits = profitsByPlayer.get(player.id) ?? [];
-    if (profits.length === 0) {
+    const rows = rowsByPlayer.get(player.id) ?? [];
+    if (rows.length === 0) {
       return {
         player,
         total_games: 0,
@@ -186,8 +195,11 @@ export async function getAllPlayersStats(
         wins: 0,
         losses: 0,
         win_rate: 0,
+        recent_form: [],
       };
     }
+    rows.sort((a, b) => a.time - b.time);
+    const profits = rows.map(r => r.profit);
 
     const totalBalance = profits.reduce((sum, p) => sum + p, 0);
     const wins = profits.filter(p => p > 0).length;
@@ -203,6 +215,7 @@ export async function getAllPlayersStats(
       wins,
       losses,
       win_rate: (wins / profits.length) * 100,
+      recent_form: computeRecentForm(profits),
     };
   });
 }

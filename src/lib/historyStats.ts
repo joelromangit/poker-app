@@ -129,6 +129,20 @@ export function computeBBStats(
   };
 }
 
+// Resultado de una partida para la forma reciente: victoria, derrota o tablas
+export type FormResult = "W" | "L" | "D";
+
+// Forma reciente: resultados de las últimas `count` partidas en orden
+// cronológico (la última partida es el último elemento)
+export function computeRecentForm(
+  chronologicalProfits: ReadonlyArray<number>,
+  count = 5,
+): FormResult[] {
+  return chronologicalProfits
+    .slice(-count)
+    .map((profit) => (profit > 0 ? "W" : profit < 0 ? "L" : "D"));
+}
+
 // Resultado del cara a cara entre dos jugadores (solo partidas en común)
 export interface HeadToHeadResult {
   commonGames: number;
