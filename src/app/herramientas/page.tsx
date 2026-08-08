@@ -1,6 +1,6 @@
 "use client";
 
-import { Calculator, Shuffle, Wrench } from "lucide-react";
+import { Calculator, Shuffle, Trophy, Wrench } from "lucide-react";
 import Link from "next/link";
 import Header from "@/components/Header";
 
@@ -25,6 +25,16 @@ const tools = [
     icon: Shuffle,
     color: "text-primary",
     bgColor: "bg-primary/20",
+  },
+  {
+    id: "salon-fama",
+    name: "Salón de la Fama",
+    description:
+      "Los récords y títulos históricos del grupo: mejores noches, rachas, bad beats y más",
+    href: "/salon-fama",
+    icon: Trophy,
+    color: "text-warning",
+    bgColor: "bg-warning/20",
   },
   // Future tools can be added here
 ];

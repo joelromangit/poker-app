@@ -33,6 +33,20 @@ function rowToEntry(row: AllInRow): AllInEntry {
   };
 }
 
+// Obtener los all-ins de todas las partidas (para récords históricos)
+export async function getAllAllIns(): Promise<AllInEntry[]> {
+  const { data, error } = await db
+    .from("all_ins")
+    .select("*")
+    .order("created_at", { ascending: true });
+
+  if (error || !data) {
+    console.error("Error fetching all all-ins:", error);
+    return [];
+  }
+  return data.map(rowToEntry);
+}
+
 // Obtener los all-ins de una partida (orden cronológico)
 export async function getGameAllIns(gameId: string): Promise<AllInEntry[]> {
   const { data, error } = await db
