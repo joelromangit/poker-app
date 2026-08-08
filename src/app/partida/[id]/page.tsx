@@ -44,6 +44,8 @@ import {
   deleteAllIn,
   getGameAllIns,
 } from '@/lib/allIns';
+import { shareResultCard } from '@/lib/resultCard';
+import { ImageDown } from 'lucide-react';
 
 export default function PartidaPage() {
   const params = useParams();
@@ -123,6 +125,30 @@ export default function PartidaPage() {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+    setShowShareMenu(false);
+  }
+
+  // Compartir el resultado como imagen (ranking + quién paga a quién)
+  async function handleShareImage() {
+    if (!game) return;
+    const date = new Date(game.created_at);
+    const sortedPlayers = [...game.game_players].sort(
+      (a, b) => b.profit - a.profit,
+    );
+    await shareResultCard({
+      title: game.name || 'Partida de Poker',
+      subtitle: `${date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })} · ${game.game_players.length} jugadores · ${game.total_pot.toFixed(2)}€ de bote`,
+      rows: sortedPlayers.map(gp => ({
+        name: gp.player?.name || '?',
+        color: getAvatarColor(gp.player?.avatar_color),
+        profit: gp.profit,
+      })),
+      payments: calculatePayments(game.game_players).map(p => ({
+        from: p.from.name,
+        to: p.to.name,
+        amount: p.amount,
+      })),
+    });
     setShowShareMenu(false);
   }
 
@@ -372,6 +398,13 @@ export default function PartidaPage() {
                         >
                           <MessageCircle className="w-5 h-5 text-green-500" />
                           <span>WhatsApp</span>
+                        </button>
+                        <button
+                          onClick={handleShareImage}
+                          className="w-full px-4 py-3 text-left hover:bg-background flex items-center gap-3 transition-colors text-foreground border-t border-border"
+                        >
+                          <ImageDown className="w-5 h-5 text-accent" />
+                          <span>Imagen del resultado</span>
                         </button>
                         <button
                           onClick={handleCopyToClipboard}

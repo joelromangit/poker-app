@@ -5,6 +5,7 @@ import {
   Calendar,
   Coins,
   Frown,
+  ImageDown,
   Sigma,
   Trophy,
   Users,
@@ -22,6 +23,7 @@ import {
 } from "recharts";
 import { computeSettlement, type GamesAggregate } from "@/lib/aggregate";
 import { getAvatarColor } from "@/lib/players";
+import { shareResultCard } from "@/lib/resultCard";
 import type { Player } from "@/types";
 
 interface AggregateSummaryProps {
@@ -70,6 +72,27 @@ export default function AggregateSummary({
 
   const settlement = computeSettlement(aggregate.players);
 
+  // Compartir el acumulado como imagen (ranking + liquidación)
+  const handleShareImage = async () => {
+    await shareResultCard({
+      title: "Acumulado de partidas",
+      subtitle: `${formatRange(aggregate.from, aggregate.to)} · ${aggregate.games} partidas · ${aggregate.totalPot.toFixed(2)}€ en juego`,
+      rows: aggregate.players.map((result) => ({
+        name: result.name,
+        color: getAvatarColor(
+          playerByName.get(result.name.toLowerCase())?.avatar_color,
+        ),
+        profit: result.balance,
+        sub: `${result.games} de ${aggregate.games} partidas`,
+      })),
+      payments: settlement.map((payment) => ({
+        from: payment.from,
+        to: payment.to,
+        amount: payment.amount,
+      })),
+    });
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
@@ -100,13 +123,22 @@ export default function AggregateSummary({
               </span>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 -m-1 text-foreground-muted hover:text-foreground transition-colors flex-shrink-0"
-            title="Cerrar"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={handleShareImage}
+              className="p-2 text-foreground-muted hover:text-accent transition-colors"
+              title="Compartir como imagen"
+            >
+              <ImageDown className="w-5 h-5" />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 -m-1 text-foreground-muted hover:text-foreground transition-colors"
+              title="Cerrar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="p-4 sm:p-5">
