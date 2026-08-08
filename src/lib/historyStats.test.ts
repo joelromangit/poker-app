@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeBBStats,
   computeHeadToHead,
+  computeRecentForm,
   computeHistoryStats,
   filterEntriesByDate,
   getCommonGameIds,
@@ -203,5 +204,22 @@ describe("computeBBStats", () => {
       bestBB: 0,
       worstBB: 0,
     });
+  });
+});
+
+describe("computeRecentForm", () => {
+  it("mapea las últimas 5 partidas a W/L/D", () => {
+    expect(computeRecentForm([10, -5, 0, 3, -2, 8, 1])).toEqual([
+      "D",
+      "W",
+      "L",
+      "W",
+      "W",
+    ]);
+  });
+
+  it("con menos de 5 partidas devuelve las que haya", () => {
+    expect(computeRecentForm([-1, 2])).toEqual(["L", "W"]);
+    expect(computeRecentForm([])).toEqual([]);
   });
 });

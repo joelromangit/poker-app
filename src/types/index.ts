@@ -36,6 +36,8 @@ export interface PlayerStats {
   wins: number;
   losses: number;
   win_rate: number;
+  // Resultados de las últimas partidas en orden cronológico (W/L/D)
+  recent_form: ("W" | "L" | "D")[];
 }
 
 // Para el formulario de nueva partida
