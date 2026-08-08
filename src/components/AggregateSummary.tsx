@@ -351,6 +351,15 @@ export default function AggregateSummary({
               </div>
             </div>
           )}
+
+          {/* Compartir el acumulado como imagen (misma acción que el icono de arriba) */}
+          <button
+            onClick={handleShareImage}
+            className="btn-primary w-full mt-5 py-3 rounded-xl font-medium flex items-center justify-center gap-2"
+          >
+            <ImageDown className="w-5 h-5" />
+            Compartir como imagen
+          </button>
         </div>
       </div>
     </div>
