@@ -45,7 +45,8 @@ import {
   getGameAllIns,
 } from '@/lib/allIns';
 import { shareResultCard } from '@/lib/resultCard';
-import { ImageDown } from 'lucide-react';
+import { verifyDeletePassword } from '@/lib/deletePassword';
+import { ImageDown, Lock } from 'lucide-react';
 
 export default function PartidaPage() {
   const params = useParams();
@@ -54,6 +55,8 @@ export default function PartidaPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deletePasswordError, setDeletePasswordError] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [copied, setCopied] = useState(false);
   const [uploadingLoserPhoto, setUploadingLoserPhoto] = useState(false);
@@ -101,14 +104,28 @@ export default function PartidaPage() {
 
   async function handleDelete() {
     if (!game) return;
+
+    // Candado: sin la contraseña no se borra
+    const passwordOk = await verifyDeletePassword(deletePassword);
+    if (!passwordOk) {
+      setDeletePasswordError(true);
+      return;
+    }
+
     setDeleting(true);
     const success = await deleteGame(game.id);
     if (success) {
       router.push('/');
     } else {
       setDeleting(false);
-      setShowDeleteConfirm(false);
+      closeDeleteConfirm();
     }
+  }
+
+  function closeDeleteConfirm() {
+    setShowDeleteConfirm(false);
+    setDeletePassword('');
+    setDeletePasswordError(false);
   }
 
   function handleShareWhatsApp() {
@@ -805,12 +822,43 @@ export default function PartidaPage() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-background-card rounded-2xl p-6 max-w-sm w-full border border-border">
             <h3 className="text-xl font-bold text-foreground mb-2">¿Eliminar partida?</h3>
-            <p className="text-foreground-muted mb-6">
+            <p className="text-foreground-muted mb-4">
               Esta acción no se puede deshacer. Se eliminarán todos los datos de esta partida.
             </p>
-            <div className="flex gap-3">
+
+            {/* Contraseña de borrado */}
+            <label className="block text-sm text-foreground-muted mb-2">
+              Contraseña para eliminar
+            </label>
+            <div className="relative mb-2">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
+              <input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => {
+                  setDeletePassword(e.target.value);
+                  setDeletePasswordError(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && deletePassword && !deleting) handleDelete();
+                }}
+                placeholder="Contraseña"
+                autoFocus
+                className={`w-full pl-10 pr-4 py-3 rounded-xl bg-background border text-foreground placeholder:text-foreground-muted outline-none focus:ring-2 transition-colors ${
+                  deletePasswordError
+                    ? 'border-danger focus:border-danger focus:ring-danger/20'
+                    : 'border-border focus:border-primary focus:ring-primary/20'
+                }`}
+              />
+            </div>
+            {deletePasswordError && (
+              <p className="text-sm text-danger mb-2">
+                Contraseña incorrecta. Ni lo intentes, maquina 🔒
+              </p>
+            )}
+            <div className="flex gap-3 mt-4">
               <button
-                onClick={() => setShowDeleteConfirm(false)}
+                onClick={closeDeleteConfirm}
                 className="flex-1 py-3 rounded-xl bg-background border border-border text-foreground font-medium hover:bg-background-secondary transition-colors"
                 disabled={deleting}
               >
@@ -818,8 +866,8 @@ export default function PartidaPage() {
               </button>
               <button
                 onClick={handleDelete}
-                className="flex-1 py-3 rounded-xl bg-danger text-white font-medium hover:bg-danger/80 transition-colors flex items-center justify-center gap-2"
-                disabled={deleting}
+                className="flex-1 py-3 rounded-xl bg-danger text-white font-medium hover:bg-danger/80 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={deleting || !deletePassword}
               >
                 {deleting ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
