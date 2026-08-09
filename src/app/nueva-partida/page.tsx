@@ -8,6 +8,7 @@ import Header from '@/components/Header';
 import NumberInput from '@/components/NumberInput';
 import QuickBuyInControl from '@/components/QuickBuyInControl';
 import { saveGameAllIns, type AllInEntry } from '@/lib/allIns';
+import { smartDistribute } from '@/lib/chipAdjust';
 import { createGame } from '@/lib/games';
 import { getPlayers, createPlayer, getAvatarColor } from '@/lib/players';
 import { Player, GameFormPlayer } from '@/types';
@@ -160,6 +161,9 @@ export default function NuevaPartidaPage() {
 
   // Modal de sorteo de sitios
   const [showSeatDraw, setShowSeatDraw] = useState(false);
+
+  // Reparto inteligente: valores auto-ajustados por jugador (antes/después)
+  const [autoAdjusted, setAutoAdjusted] = useState<Map<string, { before: string; after: string }>>(new Map());
 
   // Cargar jugadores y borrador
   useEffect(() => {
@@ -324,6 +328,12 @@ export default function NuevaPartidaPage() {
   // Eliminar jugador de la partida
   const removePlayerFromGame = (playerId: string) => {
     setSelectedPlayers(selectedPlayers.filter(p => p.player_id !== playerId));
+    setAutoAdjusted(prev => {
+      if (!prev.has(playerId)) return prev;
+      const next = new Map(prev);
+      next.delete(playerId);
+      return next;
+    });
     // Sus all-ins ya no tienen sentido; los pagados por él pasan a "varios"
     setAllIns(prev =>
       prev
@@ -334,6 +344,13 @@ export default function NuevaPartidaPage() {
 
   // Actualizar fichas finales
   const updateFinalChips = (playerId: string, value: string) => {
+    // Editar a mano quita la marca de ajuste automático de ese jugador
+    setAutoAdjusted(prev => {
+      if (!prev.has(playerId)) return prev;
+      const next = new Map(prev);
+      next.delete(playerId);
+      return next;
+    });
     setSelectedPlayers(selectedPlayers.map(p => 
       p.player_id === playerId ? { ...p, final_chips: value } : p
     ));
@@ -433,6 +450,39 @@ export default function NuevaPartidaPage() {
     lastPendingId !== null
       ? Math.round((expectedTotalChips - totalFinalChips) * 100) / 100
       : null;
+
+  // Descuadre actual (positivo = sobran fichas, negativo = faltan)
+  const chipsDiff = Math.round((totalFinalChips - expectedTotalChips) * 100) / 100;
+
+  // Reparto inteligente del descuadre entre todos los jugadores
+  const handleSmartDistribute = () => {
+    const values = selectedPlayers.map(p => parseFloat(p.final_chips) || 0);
+    const adjusted = smartDistribute(values, expectedTotalChips);
+    const marks = new Map<string, { before: string; after: string }>();
+    const nextPlayers = selectedPlayers.map((p, i) => {
+      const after = `${adjusted[i]}`;
+      if (after !== p.final_chips) {
+        marks.set(p.player_id, { before: p.final_chips, after });
+        return { ...p, final_chips: after };
+      }
+      return p;
+    });
+    setSelectedPlayers(nextPlayers);
+    setAutoAdjusted(marks);
+  };
+
+  // Deshacer el reparto: restaurar los valores manuales que siguen en auto
+  const handleUndoDistribute = () => {
+    setSelectedPlayers(prev =>
+      prev.map(p => {
+        const mark = autoAdjusted.get(p.player_id);
+        return mark && p.final_chips === mark.after
+          ? { ...p, final_chips: mark.before }
+          : p;
+      }),
+    );
+    setAutoAdjusted(new Map());
+  };
   const isBalanced = Math.abs(totalFinalChips - expectedTotalChips) < 0.01;
   const allPlayersHaveData = selectedPlayers.length >= 2 && 
     selectedPlayers.every(p => p.final_chips !== '' && parseFloat(p.final_chips) >= 0);
@@ -994,6 +1044,18 @@ export default function NuevaPartidaPage() {
                                 placeholder={`${totalChips}`}
                                 className="text-sm [&_input]:py-1.5"
                               />
+                              {/* Marca de valor ajustado por el reparto inteligente */}
+                              {(() => {
+                                const mark = autoAdjusted.get(gp.player_id);
+                                return mark && gp.final_chips === mark.after ? (
+                                  <p className="mt-1 text-[11px] text-accent flex items-center gap-1">
+                                    🪄 Ajustado automáticamente
+                                    <span className="text-foreground-muted">
+                                      (manual: {mark.before})
+                                    </span>
+                                  </p>
+                                ) : null;
+                              })()}
                               {/* Reconteo automático: es el último por apuntar */}
                               {gp.player_id === lastPendingId && expectedLastChips !== null && (
                                 expectedLastChips >= 0 ? (
@@ -1040,24 +1102,52 @@ export default function NuevaPartidaPage() {
 
             {/* Balance indicator */}
             {allPlayersHaveData && (
-              <div className={`mt-4 p-3 rounded-xl flex items-center gap-2 ${
-                isBalanced 
-                  ? 'bg-success/10 text-success border border-success/30' 
+              <div className={`mt-4 p-3 rounded-xl ${
+                isBalanced
+                  ? 'bg-success/10 text-success border border-success/30'
                   : 'bg-danger/10 text-danger border border-danger/30'
               }`}>
                 {isBalanced ? (
-                  <>
+                  <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-5 h-5" />
                     <span className="text-sm font-medium">¡El balance cuadra perfectamente!</span>
-                  </>
+                  </div>
                 ) : (
                   <>
-                    <AlertCircle className="w-5 h-5" />
-                    <span className="text-sm font-medium">
-                      Las fichas no cuadran: {totalFinalChips} vs {expectedTotalChips} esperadas
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                      <span className="text-sm font-medium">
+                        {chipsDiff > 0 ? 'Sobran' : 'Faltan'} {Math.abs(chipsDiff)} fichas:{' '}
+                        {totalFinalChips} apuntadas vs {expectedTotalChips} en juego
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSmartDistribute}
+                      className="mt-2 w-full text-sm font-medium px-3 py-2 rounded-lg bg-accent/15 border border-accent/40 text-accent hover:bg-accent/25 transition-colors"
+                    >
+                      🪄 Repartir {chipsDiff > 0 ? 'el sobrante' : 'lo que falta'} entre todos
+                      (proporcional al stack)
+                    </button>
                   </>
                 )}
+              </div>
+            )}
+
+            {/* Aviso de reparto automático aplicado + deshacer */}
+            {autoAdjusted.size > 0 && (
+              <div className="mt-3 p-3 rounded-xl bg-accent/10 border border-accent/30 flex items-center justify-between gap-3">
+                <span className="text-sm text-accent">
+                  🪄 Reparto automático aplicado a {autoAdjusted.size} jugador
+                  {autoAdjusted.size !== 1 ? 'es' : ''}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleUndoDistribute}
+                  className="text-sm font-medium px-3 py-1.5 rounded-lg bg-background border border-border text-foreground hover:border-accent transition-colors flex-shrink-0"
+                >
+                  Deshacer
+                </button>
               </div>
             )}
           </section>
