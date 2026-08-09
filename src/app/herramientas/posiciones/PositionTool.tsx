@@ -3,46 +3,12 @@
 import { Loader2, Shuffle, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAvatarColor, getPlayers } from "@/lib/players";
+import { positionsFor, seatAngles, shuffle } from "@/lib/positions";
 import type { Player } from "@/types";
 
 type SeatAssignment = {
   player: Player;
   position: string;
-};
-
-const POSITION_SETS: Record<number, string[]> = {
-  3: ["BTN", "SB", "BB"],
-  4: ["BTN", "SB", "BB", "UTG"],
-  5: ["BTN", "SB", "BB", "UTG", "CO"],
-  6: ["BTN", "SB", "BB", "UTG", "MP", "CO"],
-  7: ["BTN", "SB", "BB", "UTG", "MP", "HJ", "CO"],
-  8: ["BTN", "SB", "BB", "UTG", "UTG+1", "MP", "HJ", "CO"],
-  9: ["BTN", "SB", "BB", "UTG", "UTG+1", "UTG+2", "MP", "HJ", "CO"],
-};
-
-const FALLBACK_POSITIONS = [
-  "BTN",
-  "SB",
-  "BB",
-  "UTG",
-  "UTG+1",
-  "UTG+2",
-  "MP",
-  "MP+1",
-  "HJ",
-  "CO",
-];
-
-const seatAngles = (count: number) =>
-  Array.from({ length: count }, (_, index) => (360 / count) * index - 90);
-
-const shuffle = <T,>(items: T[]) => {
-  const result = [...items];
-  for (let i = result.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
 };
 
 export default function PositionTool() {
@@ -94,9 +60,7 @@ export default function PositionTool() {
 
   const handleAssignPositions = () => {
     if (!canAssign) return;
-    const positions =
-      POSITION_SETS[selectedPlayers.length] ||
-      FALLBACK_POSITIONS.slice(0, selectedPlayers.length);
+    const positions = positionsFor(selectedPlayers.length);
     const shuffled = shuffle(selectedPlayers);
 
     const nextAssignments = positions.map((position, index) => ({

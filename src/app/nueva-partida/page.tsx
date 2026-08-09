@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AllInSection from '@/components/AllInSection';
+import SeatDrawModal from '@/components/SeatDrawModal';
 import Header from '@/components/Header';
 import NumberInput from '@/components/NumberInput';
 import QuickBuyInControl from '@/components/QuickBuyInControl';
@@ -156,6 +157,9 @@ export default function NuevaPartidaPage() {
 
   // Dropdown de selección
   const [showPlayerDropdown, setShowPlayerDropdown] = useState(false);
+
+  // Modal de sorteo de sitios
+  const [showSeatDraw, setShowSeatDraw] = useState(false);
 
   // Cargar jugadores y borrador
   useEffect(() => {
@@ -756,11 +760,21 @@ export default function NuevaPartidaPage() {
 
           {/* Jugadores */}
           <section className="bg-background-card rounded-2xl p-5 sm:p-6 border border-border mb-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 gap-2">
               <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <Users className="w-5 h-5 text-primary" />
                 Jugadores ({selectedPlayers.length})
               </h2>
+              {/* Sortear sitios con los jugadores ya elegidos */}
+              {selectedPlayers.length >= 2 && (
+                <button
+                  type="button"
+                  onClick={() => setShowSeatDraw(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-accent/15 text-accent border border-accent/30 hover:bg-accent/25 transition-colors flex-shrink-0"
+                >
+                  🎲 Sortear sitios
+                </button>
+              )}
             </div>
 
             {/* Selector de jugadores - Multiselección */}
@@ -1039,6 +1053,19 @@ export default function NuevaPartidaPage() {
                 subtitle="Se guardan en el borrador y con la partida"
               />
             </div>
+          )}
+
+          {/* Modal de sorteo de sitios con los jugadores de la partida */}
+          {showSeatDraw && (
+            <SeatDrawModal
+              players={selectedPlayers.map(p => ({
+                id: p.player_id,
+                name: p.player?.name || '?',
+                color: getAvatarColor(p.player?.avatar_color),
+                avatarUrl: p.player?.avatar_url || undefined,
+              }))}
+              onClose={() => setShowSeatDraw(false)}
+            />
           )}
 
           {/* Notas */}
