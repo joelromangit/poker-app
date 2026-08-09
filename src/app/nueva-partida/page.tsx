@@ -424,6 +424,15 @@ export default function NuevaPartidaPage() {
   // Verificar balance (considerando entradas y rebuys)
   const totalFinalChips = selectedPlayers.reduce((sum, p) => sum + (parseFloat(p.final_chips) || 0), 0);
   const expectedTotalChips = selectedPlayers.reduce((sum, p) => sum + getTotalChipsBought(p.buy_ins, p.rebuys), 0);
+
+  // Reconteo automático: si solo falta un jugador por apuntar, sus fichas
+  // esperadas son las que hacen cuadrar el balance
+  const pendingFinals = selectedPlayers.filter(p => p.final_chips === '');
+  const lastPendingId = pendingFinals.length === 1 ? pendingFinals[0].player_id : null;
+  const expectedLastChips =
+    lastPendingId !== null
+      ? Math.round((expectedTotalChips - totalFinalChips) * 100) / 100
+      : null;
   const isBalanced = Math.abs(totalFinalChips - expectedTotalChips) < 0.01;
   const allPlayersHaveData = selectedPlayers.length >= 2 && 
     selectedPlayers.every(p => p.final_chips !== '' && parseFloat(p.final_chips) >= 0);
@@ -985,6 +994,24 @@ export default function NuevaPartidaPage() {
                                 placeholder={`${totalChips}`}
                                 className="text-sm [&_input]:py-1.5"
                               />
+                              {/* Reconteo automático: es el último por apuntar */}
+                              {gp.player_id === lastPendingId && expectedLastChips !== null && (
+                                expectedLastChips >= 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => updateFinalChips(gp.player_id, `${expectedLastChips}`)}
+                                    className="mt-1.5 w-full text-left text-xs px-2.5 py-1.5 rounded-lg bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 transition-colors"
+                                  >
+                                    ✨ Esperado: <span className="font-bold">{expectedLastChips} fichas</span> para
+                                    que cuadre el balance — toca para usar
+                                  </button>
+                                ) : (
+                                  <p className="mt-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-danger/10 border border-danger/30 text-danger">
+                                    ⚠️ El resto suma {totalFinalChips} fichas y solo hay {expectedTotalChips} en
+                                    juego: revisa los recuentos
+                                  </p>
+                                )
+                              )}
                             </div>
                           </div>
 
