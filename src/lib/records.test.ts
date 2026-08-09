@@ -205,3 +205,31 @@ describe("computeAllInRecords", () => {
     expect(records.every((r) => r.holder === null)).toBe(true);
   });
 });
+
+describe("mayor bote all-in", () => {
+  const names = new Map([
+    ["ana", "Ana"],
+    ["beto", "Beto"],
+  ]);
+  it("encuentra el bote más gordo ganado (los perdidos no cuentan)", () => {
+    const base = {
+      callerId: "beto",
+      street: "preflop" as const,
+      equity: 50,
+      runItTwice: false,
+      at: "2026-08-01T22:00:00Z",
+    };
+    const records = computeAllInRecords(
+      [
+        { ...base, pusherId: "ana", result: "won", potEur: 12.5 },
+        { ...base, pusherId: "beto", callerId: "ana", result: "lost", potEur: 99 },
+        { ...base, pusherId: "ana", result: "split", potEur: 20 },
+      ],
+      names,
+    );
+    expect(findRecord(records, "big-pot").holder).toMatchObject({
+      playerName: "Ana",
+      value: "20.00€",
+    });
+  });
+});

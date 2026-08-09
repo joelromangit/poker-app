@@ -115,6 +115,49 @@ export async function deleteLoserPhoto(photoUrl: string): Promise<boolean> {
   }
 }
 
+// Subir foto de la mesa de un all-in (reutiliza el bucket loser-photos,
+// que ya tiene políticas públicas, con su propio prefijo de carpeta)
+export async function uploadAllInPhoto(file: File): Promise<string | null> {
+  const fileExt = file.name.split('.').pop() || 'jpg';
+  const filePath = `allins/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
+
+  const { error: uploadError } = await db.storage
+    .from('loser-photos')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: true,
+    });
+
+  if (uploadError) {
+    console.error('Error uploading all-in photo:', uploadError);
+    return null;
+  }
+
+  const { data } = db.storage.from('loser-photos').getPublicUrl(filePath);
+  return data.publicUrl;
+}
+
+// Eliminar foto de un all-in
+export async function deleteAllInPhoto(photoUrl: string): Promise<boolean> {
+  if (!photoUrl) return false;
+  try {
+    const url = new URL(photoUrl);
+    const pathParts = url.pathname.split('/');
+    const bucketIndex = pathParts.indexOf('loser-photos');
+    if (bucketIndex === -1) return false;
+
+    const filePath = pathParts.slice(bucketIndex + 1).join('/');
+    const { error } = await db.storage.from('loser-photos').remove([filePath]);
+    if (error) {
+      console.error('Error deleting all-in photo:', error);
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Comprimir imagen antes de subir
 export async function compressImage(file: File, maxWidth = 400): Promise<File> {
   return new Promise((resolve) => {

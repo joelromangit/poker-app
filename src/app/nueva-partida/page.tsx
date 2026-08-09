@@ -8,6 +8,7 @@ import Header from '@/components/Header';
 import NumberInput from '@/components/NumberInput';
 import QuickBuyInControl from '@/components/QuickBuyInControl';
 import { saveGameAllIns, type AllInEntry } from '@/lib/allIns';
+import { deleteAllInPhoto } from '@/lib/storage';
 import { smartDistribute } from '@/lib/chipAdjust';
 import { createGame } from '@/lib/games';
 import { getPlayers, createPlayer, getAvatarColor } from '@/lib/players';
@@ -1163,10 +1164,12 @@ export default function NuevaPartidaPage() {
                   avatarUrl: p.player?.avatar_url || undefined,
                 }))}
                 entries={allIns}
+                chipValue={parseFloat(chipValue) || 0}
                 onAdd={entry => setAllIns(prev => [...prev, entry])}
-                onDelete={(_entry, index) =>
-                  setAllIns(prev => prev.filter((_, i) => i !== index))
-                }
+                onDelete={(entry, index) => {
+                  if (entry.photoUrl) deleteAllInPhoto(entry.photoUrl);
+                  setAllIns(prev => prev.filter((_, i) => i !== index));
+                }}
                 subtitle="Se guardan en el borrador y con la partida"
               />
             </div>
