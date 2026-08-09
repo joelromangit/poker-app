@@ -73,10 +73,7 @@ export default function AllInsPage() {
     () => new Map(histories.map((h) => [h.player.id, h.player])),
     [histories],
   );
-  const gameById = useMemo(
-    () => new Map(games.map((g) => [g.id, g])),
-    [games],
-  );
+  const gameById = useMemo(() => new Map(games.map((g) => [g.id, g])), [games]);
   const playerName = (id: string | null) =>
     id ? (playerById.get(id)?.name ?? "?") : "varios";
 
@@ -194,10 +191,7 @@ export default function AllInsPage() {
                           key={s.playerId}
                           className="flex items-center gap-2.5 p-3 bg-background-card rounded-xl border border-border"
                         >
-                          <Avatar
-                            player={player}
-                            name={player?.name ?? "?"}
-                          />
+                          <Avatar player={player} name={player?.name ?? "?"} />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-foreground truncate">
                               {player?.name ?? "?"}
@@ -215,9 +209,7 @@ export default function AllInsPage() {
                               {s.won}G {s.lost}P
                               {s.split > 0 ? ` ${s.split}🤝` : ""}
                               {s.called > 0 ? ` · pagó ${s.called}` : ""}
-                              {s.badbeats > 0
-                                ? ` · ${s.badbeats}😭`
-                                : ""}
+                              {s.badbeats > 0 ? ` · ${s.badbeats}😭` : ""}
                               {s.suckouts > 0 ? ` · ${s.suckouts}🍀` : ""}
                             </p>
                           </div>
@@ -246,7 +238,11 @@ export default function AllInsPage() {
                                       : "text-foreground-muted"
                                 }`}
                               >
-                                {s.luck > 10 ? "🍀" : s.luck < -10 ? "🧂" : "😐"}{" "}
+                                {s.luck > 10
+                                  ? "🍀"
+                                  : s.luck < -10
+                                    ? "🧂"
+                                    : "😐"}{" "}
                                 suerte {s.luck > 0 ? "+" : ""}
                                 {s.luck.toFixed(0)}
                               </p>
@@ -391,12 +387,11 @@ export default function AllInsPage() {
                                       RIT
                                     </span>
                                   )}
-                                  {entry.potEur != null &&
-                                    entry.potEur > 0 && (
-                                      <span className="text-[11px] px-1.5 py-0.5 rounded bg-accent/15 text-accent font-bold">
-                                        💰 {entry.potEur.toFixed(2)}€
-                                      </span>
-                                    )}
+                                  {entry.potEur != null && entry.potEur > 0 && (
+                                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-accent/15 text-accent font-bold">
+                                      💰 {entry.potEur.toFixed(2)}€
+                                    </span>
+                                  )}
                                   {badge && (
                                     <span
                                       className={`text-[11px] px-1.5 py-0.5 rounded font-bold ${BADGE_META[badge].className}`}
