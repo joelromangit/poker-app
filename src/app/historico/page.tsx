@@ -89,12 +89,27 @@ function HistoryTooltip({
 }) {
   if (!active || !payload || payload.length === 0) return null;
 
-  const entries = payload.filter((entry) => typeof entry.value === "number");
+  // Las series vienen duplicadas (sólida + __neg discontinua): dedupe por
+  // jugador quedándonos con el primer valor numérico
+  const byPlayer = new Map<
+    string,
+    { dataKey: string; value: number; color?: string }
+  >();
+  for (const entry of payload) {
+    if (typeof entry.value !== "number") continue;
+    const name = String(entry.dataKey).replace(/__neg$/, "");
+    if (!byPlayer.has(name)) {
+      byPlayer.set(name, {
+        dataKey: name,
+        value: entry.value,
+        color: entry.color,
+      });
+    }
+  }
+  const entries = Array.from(byPlayer.values());
   if (entries.length === 0) return null;
 
-  const sorted = [...entries].sort(
-    (a, b) => (b.value as number) - (a.value as number),
-  );
+  const sorted = [...entries].sort((a, b) => b.value - a.value);
 
   return (
     <div className="bg-background-card border border-border rounded-lg p-3 shadow-xl max-w-[240px]">
@@ -357,6 +372,24 @@ function HistoricoContent() {
       }
       return point;
     });
+
+    // Partir cada serie en dos: sólida (tramos en positivo) y discontinua
+    // (tramos que tocan territorio negativo). Los puntos frontera van en
+    // ambas para que las líneas empalmen sin huecos.
+    for (const history of chartHistories) {
+      const name = history.player.name;
+      const values = points.map((p) => p[name] as number | null);
+      points.forEach((p, i) => {
+        const v = values[i];
+        const touchesNegative =
+          v !== null &&
+          (v < 0 ||
+            (i > 0 && (values[i - 1] ?? 0) < 0) ||
+            (i < values.length - 1 && (values[i + 1] ?? 0) < 0));
+        p[name] = v !== null && v >= 0 ? v : null;
+        p[`${name}__neg`] = touchesNegative ? v : null;
+      });
+    }
 
     return { chartData: points, fullLabelByLabel: labels };
   }, [chartHistories, chartMode, chartUnit]);
@@ -1079,7 +1112,25 @@ function HistoricoContent() {
                                   strokeWidth: 2,
                                   r: 6,
                                 }}
-                                connectNulls
+                                isAnimationActive={false}
+                              />
+                            ))}
+                            {/* Tramos en negativo: línea discontinua */}
+                            {chartHistories.map((history) => (
+                              <Line
+                                key={`${history.player.id}-neg`}
+                                type="monotone"
+                                dataKey={`${history.player.name}__neg`}
+                                stroke={history.player.color}
+                                strokeWidth={2.5}
+                                strokeDasharray="6 5"
+                                dot={{
+                                  fill: history.player.color,
+                                  stroke: history.player.color,
+                                  strokeWidth: 1.5,
+                                  r: 3.5,
+                                }}
+                                activeDot={false}
                                 isAnimationActive={false}
                               />
                             ))}
