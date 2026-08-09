@@ -357,6 +357,19 @@ export function computeAllInRecords(
     }
   }
 
+  // 💰 Mayor bote ganado en un all-in
+  let biggestPot: AllInEntry | null = null;
+  for (const entry of allIns) {
+    if (
+      entry.result !== "lost" &&
+      entry.potEur != null &&
+      entry.potEur > 0 &&
+      (!biggestPot || entry.potEur > (biggestPot.potEur ?? 0))
+    ) {
+      biggestPot = entry;
+    }
+  }
+
   let topPusher: string | null = null;
   for (const [playerId, count] of pushedCount) {
     if (topPusher === null || count > (pushedCount.get(topPusher) ?? 0))
@@ -369,6 +382,24 @@ export function computeAllInRecords(
   }
 
   return [
+    {
+      key: "big-pot",
+      emoji: "💰",
+      title: "Mayor bote all-in",
+      description: "El bote más gordo ganado yendo con todo",
+      holder: biggestPot
+        ? {
+            playerId: biggestPot.pusherId,
+            playerName: name(biggestPot.pusherId),
+            rivalName: biggestPot.callerId
+              ? name(biggestPot.callerId)
+              : undefined,
+            value: `${(biggestPot.potEur ?? 0).toFixed(2)}€`,
+            date: biggestPot.at,
+            gameId: biggestPot.gameId,
+          }
+        : null,
+    },
     {
       key: "badbeat",
       emoji: "😭",

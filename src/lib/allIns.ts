@@ -15,6 +15,9 @@ interface AllInRow {
   pusher_cards?: string | null;
   caller_cards?: string | null;
   board_cards?: string | null;
+  pot_eur?: number | null;
+  photo_url?: string | null;
+  game_id?: string;
 }
 
 function rowToEntry(row: AllInRow): AllInEntry {
@@ -30,6 +33,9 @@ function rowToEntry(row: AllInRow): AllInEntry {
     pusherCards: row.pusher_cards ?? null,
     callerCards: row.caller_cards ?? null,
     boardCards: row.board_cards ?? null,
+    potEur: row.pot_eur ?? null,
+    photoUrl: row.photo_url ?? null,
+    gameId: row.game_id,
   };
 }
 
@@ -81,6 +87,8 @@ export async function addAllIn(
       pusher_cards: entry.pusherCards ?? null,
       caller_cards: entry.callerCards ?? null,
       board_cards: entry.boardCards ?? null,
+      pot_eur: entry.potEur ?? null,
+      photo_url: entry.photoUrl ?? null,
     })
     .select()
     .single();
@@ -124,6 +132,8 @@ export async function saveGameAllIns(
       pusher_cards: entry.pusherCards ?? null,
       caller_cards: entry.callerCards ?? null,
       board_cards: entry.boardCards ?? null,
+      pot_eur: entry.potEur ?? null,
+      photo_url: entry.photoUrl ?? null,
     })),
   );
 

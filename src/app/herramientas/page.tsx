@@ -1,6 +1,6 @@
 "use client";
 
-import { Calculator, Shuffle, Trophy, Wrench } from "lucide-react";
+import { Calculator, Flame, Shuffle, Trophy, Wrench } from "lucide-react";
 import Link from "next/link";
 import Header from "@/components/Header";
 
@@ -25,6 +25,16 @@ const tools = [
     icon: Shuffle,
     color: "text-primary",
     bgColor: "bg-primary/20",
+  },
+  {
+    id: "all-ins",
+    name: "All-ins del grupo",
+    description:
+      "Estadísticas, clasificación, mayores botes y el historial completo de all-ins",
+    href: "/all-ins",
+    icon: Flame,
+    color: "text-danger",
+    bgColor: "bg-danger/20",
   },
   {
     id: "salon-fama",

@@ -17,6 +17,8 @@ export type Database = {
           created_at: string
           game_id: string
           id: string
+          photo_url: string | null
+          pot_eur: number | null
           pusher_cards: string | null
           pusher_equity: number | null
           pusher_id: string
@@ -31,6 +33,8 @@ export type Database = {
           created_at?: string
           game_id: string
           id?: string
+          photo_url?: string | null
+          pot_eur?: number | null
           pusher_cards?: string | null
           pusher_equity?: number | null
           pusher_id: string
@@ -45,6 +49,8 @@ export type Database = {
           created_at?: string
           game_id?: string
           id?: string
+          photo_url?: string | null
+          pot_eur?: number | null
           pusher_cards?: string | null
           pusher_equity?: number | null
           pusher_id?: string

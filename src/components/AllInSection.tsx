@@ -1,6 +1,6 @@
 "use client";
 
-import { Flame, Loader2, Plus, Repeat2, Trash2, X } from "lucide-react";
+import { Camera, Coins, Flame, Loader2, Plus, Repeat2, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import CardsInput, { CardChip } from "@/components/CardPicker";
 import {
@@ -20,6 +20,11 @@ import {
   parseCards,
 } from "@/lib/cards";
 import { computeAllInEquity } from "@/lib/equity";
+import {
+  compressImage,
+  deleteAllInPhoto,
+  uploadAllInPhoto,
+} from "@/lib/storage";
 
 // Jugador disponible para registrar all-ins
 export interface AllInPlayer {
@@ -35,6 +40,8 @@ interface AllInSectionProps {
   onAdd: (entry: AllInEntry) => void | Promise<void>;
   onDelete: (entry: AllInEntry, index: number) => void | Promise<void>;
   subtitle?: string;
+  // Valor de la ficha en € para convertir el bote (fichas -> €)
+  chipValue?: number;
 }
 
 const STREETS: Street[] = ["preflop", "flop", "turn", "river"];
@@ -99,6 +106,7 @@ export default function AllInSection({
   onAdd,
   onDelete,
   subtitle,
+  chipValue,
 }: AllInSectionProps) {
   const [showForm, setShowForm] = useState(false);
 
@@ -307,6 +315,11 @@ export default function AllInSection({
                             RIT
                           </span>
                         )}
+                        {entry.potEur != null && entry.potEur > 0 && (
+                          <span className="text-[11px] px-1.5 py-0.5 rounded bg-accent/15 text-accent font-bold">
+                            💰 {entry.potEur.toFixed(2)}€
+                          </span>
+                        )}
                         {badge && (
                           <span
                             className={`text-[11px] px-1.5 py-0.5 rounded font-bold ${BADGE_META[badge].className}`}
@@ -369,6 +382,24 @@ export default function AllInSection({
                           </div>
                         </div>
                       )}
+                      {/* Foto de la mesa */}
+                      {entry.photoUrl && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            entry.photoUrl &&
+                            window.open(entry.photoUrl, "_blank")
+                          }
+                          className="mt-2 block"
+                          title="Ver foto de la mesa"
+                        >
+                          <img
+                            src={entry.photoUrl}
+                            alt="Mesa en el all-in"
+                            className="h-20 rounded-lg border border-border object-cover"
+                          />
+                        </button>
+                      )}
                     </div>
 
                     {/* Resultado + borrar */}
@@ -404,6 +435,7 @@ export default function AllInSection({
       {showForm && (
         <AllInForm
           players={players}
+          chipValue={chipValue}
           onClose={() => setShowForm(false)}
           onSave={async (entry) => {
             await onAdd(entry);
@@ -418,10 +450,12 @@ export default function AllInSection({
 // Formulario de registro de all-in (bottom sheet en móvil)
 function AllInForm({
   players,
+  chipValue,
   onClose,
   onSave,
 }: {
   players: AllInPlayer[];
+  chipValue?: number;
   onClose: () => void;
   onSave: (entry: AllInEntry) => void | Promise<void>;
 }) {
@@ -438,7 +472,41 @@ function AllInForm({
   const [computing, setComputing] = useState(false);
   const [runItTwice, setRunItTwice] = useState(false);
   const [result, setResult] = useState<AllInResult | null>(null);
+  // Extras opcionales: bote total de la mano (en fichas) y foto de la mesa
+  const [potChips, setPotChips] = useState("");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const potEur =
+    potChips !== "" && chipValue && chipValue > 0
+      ? Math.round(parseFloat(potChips) * chipValue * 100) / 100
+      : null;
+
+  const handlePhotoChange = async (file: File | undefined) => {
+    if (!file) return;
+    setUploadingPhoto(true);
+    const compressed = await compressImage(file, 1000);
+    const url = await uploadAllInPhoto(compressed);
+    if (url) {
+      // Si había otra foto subida, limpiarla
+      if (photoUrl) deleteAllInPhoto(photoUrl);
+      setPhotoUrl(url);
+    }
+    setUploadingPhoto(false);
+  };
+
+  const handleRemovePhoto = () => {
+    if (photoUrl) deleteAllInPhoto(photoUrl);
+    setPhotoUrl(null);
+  };
+
+  // Cerrar sin guardar: no dejar la foto huérfana en storage
+  const handleClose = () => {
+    if (photoUrl && !saved) deleteAllInPhoto(photoUrl);
+    onClose();
+  };
 
   const boardSize = BOARD_SIZE_BY_STREET[street];
   const canUseCards = !callerIsMulti && callerId !== null;
@@ -483,6 +551,7 @@ function AllInForm({
   const handleSave = async () => {
     if (!pusherId || !result) return;
     setSaving(true);
+    setSaved(true);
     await onSave({
       pusherId,
       callerId: callerIsMulti ? null : callerId,
@@ -495,6 +564,8 @@ function AllInForm({
       callerCards: cardsComplete ? formatCards(cards.caller) : null,
       boardCards:
         cardsComplete && boardSize > 0 ? formatCards(cards.board) : null,
+      potEur,
+      photoUrl,
     });
   };
 
@@ -504,7 +575,7 @@ function AllInForm({
   return (
     <div
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
-      onClick={onClose}
+      onClick={handleClose}
     >
       <div
         className="w-full sm:max-w-md max-h-[92vh] overflow-y-auto bg-background-card border border-border rounded-t-2xl sm:rounded-2xl animate-fade-in"
@@ -516,7 +587,7 @@ function AllInForm({
           </h3>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="p-2 -m-1 text-foreground-muted hover:text-foreground transition-colors"
           >
             <X className="w-5 h-5" />
@@ -755,11 +826,93 @@ function AllInForm({
             </div>
           </div>
 
+          {/* Extras opcionales: suben el nivel de las estadísticas */}
+          <div className="p-3 rounded-xl bg-background border border-dashed border-accent/40 space-y-3">
+            <p className="text-xs font-semibold text-accent">
+              Extras para las estadísticas 📊{" "}
+              <span className="font-normal text-foreground-muted">
+                (opcionales, pero los récords molan más con ellos)
+              </span>
+            </p>
+
+            {/* Bote de la mano */}
+            <div>
+              <label className="block text-xs text-foreground-muted mb-1 flex items-center gap-1">
+                <Coins className="w-3 h-3" />
+                Bote total de la mano en fichas (con lo que ya había en la mesa)
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step={10}
+                  value={potChips}
+                  onChange={(e) => setPotChips(e.target.value)}
+                  placeholder="p. ej. 2400"
+                  className="flex-1 px-3 py-2 rounded-lg bg-background-card border border-border text-foreground text-sm placeholder:text-foreground-muted focus:border-primary outline-none"
+                />
+                {potEur !== null && !Number.isNaN(potEur) && (
+                  <span className="text-sm font-bold text-accent flex-shrink-0">
+                    = {potEur.toFixed(2)}€
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Foto de la mesa */}
+            <div>
+              <label className="block text-xs text-foreground-muted mb-1 flex items-center gap-1">
+                <Camera className="w-3 h-3" />
+                Foto de la mesa
+              </label>
+              {photoUrl ? (
+                <div className="relative inline-block">
+                  <img
+                    src={photoUrl}
+                    alt="Mesa en el all-in"
+                    className="h-24 rounded-lg border border-border object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-danger text-white flex items-center justify-center shadow"
+                    title="Quitar foto"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-border text-sm text-foreground-muted hover:border-primary hover:text-foreground transition-colors cursor-pointer">
+                  {uploadingPhoto ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      Subiendo foto...
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="w-4 h-4" />
+                      Hacer o elegir foto 📸
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    disabled={uploadingPhoto}
+                    onChange={(e) => handlePhotoChange(e.target.files?.[0])}
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+
           {/* Guardar */}
           <button
             type="button"
             onClick={handleSave}
-            disabled={!canSave}
+            disabled={!canSave || uploadingPhoto}
             className="btn-primary w-full py-3 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Guardando..." : "Guardar all-in 🚀"}

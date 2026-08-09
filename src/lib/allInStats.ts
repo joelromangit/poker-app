@@ -34,6 +34,12 @@ export interface AllInEntry {
   pusherCards?: string | null;
   callerCards?: string | null;
   boardCards?: string | null;
+  // Bote total de la mano en € (incluye lo que ya había en la mesa)
+  potEur?: number | null;
+  // Foto de la mesa en el momento del all-in
+  photoUrl?: string | null;
+  // Partida a la que pertenece (solo en lecturas globales de DB)
+  gameId?: string;
 }
 
 // Momento dramático del all-in según equity y resultado

@@ -34,7 +34,7 @@ import {
   X,
   ChevronDown,
 } from 'lucide-react';
-import { uploadLoserPhoto, compressImage, deleteLoserPhoto } from '@/lib/storage';
+import { uploadLoserPhoto, compressImage, deleteLoserPhoto, deleteAllInPhoto } from '@/lib/storage';
 import { updateGameLoserPhoto } from '@/lib/games';
 import ImageCropper from '@/components/ImageCropper';
 import AllInSection from '@/components/AllInSection';
@@ -99,6 +99,7 @@ export default function PartidaPage() {
       const ok = await deleteAllIn(entry.id);
       if (!ok) return;
     }
+    if (entry.photoUrl) deleteAllInPhoto(entry.photoUrl);
     setAllIns(prev => prev.filter((_, i) => i !== index));
   };
 
@@ -780,6 +781,7 @@ export default function PartidaPage() {
                 avatarUrl: gp.player?.avatar_url || undefined,
               }))}
               entries={allIns}
+              chipValue={game.chip_value}
               onAdd={handleAddAllIn}
               onDelete={handleDeleteAllIn}
               subtitle="Los momentos de gloria (y de vergüenza) de la noche"
