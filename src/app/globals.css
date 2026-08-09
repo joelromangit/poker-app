@@ -92,12 +92,16 @@ body {
   50% { transform: translateY(-8px); }
 }
 
+/* fill-mode backwards (no forwards): al acabar, el elemento vuelve a su
+   estado natural SIN transform. Un transform residual convertía a estos
+   contenedores en containing block de los modales con position:fixed,
+   que aparecían al fondo de la página en vez de en pantalla. */
 .animate-fade-in {
-  animation: fadeIn 0.4s ease-out forwards;
+  animation: fadeIn 0.4s ease-out backwards;
 }
 
 .animate-slide-in {
-  animation: slideIn 0.3s ease-out forwards;
+  animation: slideIn 0.3s ease-out backwards;
 }
 
 .animate-pulse-glow {
