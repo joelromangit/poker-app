@@ -1,14 +1,7 @@
 "use client";
 
-import {
-  Calendar,
-  CalendarDays,
-  Loader2,
-  Pause,
-  Play,
-  TrendingUp,
-} from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, TrendingUp } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Line,
   LineChart,
@@ -17,58 +10,64 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import SegmentedButton from "@/components/SegmentedButton";
+import { getPlayersHistory, type PlayerHistory } from "@/lib/history";
 import {
-  type ChartDataPoint,
-  filterChartData,
-  getRankingEvolution,
-  type IntervalType,
-  type PlayerChartInfo,
-  type RankingChartData,
-} from "@/lib/rankingChart";
+  computeRankingEvolution,
+  type EvolutionOptions,
+  type EvolutionPlayer,
+} from "@/lib/rankingEvolution";
 
-interface CustomTooltipProps {
-  active?: boolean;
-  payload?: ReadonlyArray<{
-    dataKey: string;
-    value: number;
-    color: string;
-  }>;
-  label?: string | number;
-  players: PlayerChartInfo[];
-}
+// Periodos rápidos de la evolución del ranking
+type PeriodOption = "total" | "last3m" | "last5" | "custom" | number;
 
-// Custom tooltip component
-function CustomTooltip({
+function RankTooltip({
   active,
   payload,
   label,
   players,
-}: CustomTooltipProps) {
+  fullLabelByLabel,
+}: {
+  active?: boolean;
+  payload?: ReadonlyArray<{
+    dataKey: string | number;
+    value: number | null;
+    color?: string;
+  }>;
+  label?: string | number;
+  players: EvolutionPlayer[];
+  fullLabelByLabel: Map<string, string>;
+}) {
   if (!active || !payload || payload.length === 0) return null;
 
-  // Sort by rank value (ascending since rank 1 is best)
-  const sortedPayload = [...payload].sort(
+  const entries = payload.filter((entry) => typeof entry.value === "number");
+  if (entries.length === 0) return null;
+  const sorted = [...entries].sort(
     (a, b) => (a.value as number) - (b.value as number),
   );
 
   return (
-    <div className="bg-background-card border border-border rounded-lg p-3 shadow-xl">
-      <p className="text-foreground-muted text-sm mb-2 font-medium">{label}</p>
+    <div className="bg-background-card border border-border rounded-lg p-3 shadow-xl max-w-[240px]">
+      <p className="text-foreground-muted text-xs mb-2 font-medium">
+        {fullLabelByLabel.get(String(label)) ?? label}
+      </p>
       <div className="space-y-1">
-        {sortedPayload.map((entry) => {
+        {sorted.map((entry) => {
           const player = players.find((p) => p.name === entry.dataKey);
           return (
             <div
-              key={entry.dataKey}
+              key={String(entry.dataKey)}
               className="flex items-center gap-2 text-sm"
             >
               <div
-                className="w-3 h-3 rounded-full flex-shrink-0"
-                style={{ backgroundColor: player?.color || entry.color }}
+                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                style={{ backgroundColor: player?.color ?? entry.color }}
               />
-              <span className="text-foreground">{entry.dataKey}</span>
-              <span className="text-foreground-muted ml-auto">
-                #{entry.value}
+              <span className="text-foreground truncate">
+                {String(entry.dataKey)}
+              </span>
+              <span className="text-foreground-muted ml-auto font-semibold">
+                {entry.value}º
               </span>
             </div>
           );
@@ -78,577 +77,283 @@ function CustomTooltip({
   );
 }
 
-// Custom Y-axis tick to show rank numbers
-function CustomYAxisTick({
-  x,
-  y,
-  payload,
-}: {
-  x: number;
-  y: number;
-  payload: { value: number };
-}) {
-  return (
-    <text
-      x={x}
-      y={y}
-      dy={4}
-      textAnchor="end"
-      fill="var(--foreground-muted)"
-      fontSize={12}
-    >
-      {payload.value}
-    </text>
-  );
-}
-
-// Left side labels showing player names at first data point
-function LeftLabels({
-  data,
-  players,
-  chartHeight,
-  maxRank,
-}: {
-  data: ChartDataPoint[];
-  players: PlayerChartInfo[];
-  chartHeight: number;
-  maxRank: number;
-}) {
-  if (data.length === 0) return null;
-
-  const firstPoint = data[0];
-  const paddingTop = 20;
-  const paddingBottom = 40;
-  const effectiveHeight = chartHeight - paddingTop - paddingBottom;
-  const rankStep = effectiveHeight / (maxRank - 1 || 1);
-
-  return (
-    <div
-      className="absolute left-0 top-0 w-24 pointer-events-none"
-      style={{ height: chartHeight }}
-    >
-      {players.map((player) => {
-        const rank = (firstPoint[player.name] as number) || maxRank;
-        const yPos = paddingTop + (rank - 1) * rankStep;
-
-        return (
-          <div
-            key={player.id}
-            className="absolute flex items-center gap-1.5 text-xs font-medium transition-all duration-300"
-            style={{
-              top: yPos,
-              transform: "translateY(-50%)",
-              left: 4,
-            }}
-          >
-            <div
-              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-              style={{ backgroundColor: player.color }}
-            />
-            <span
-              className="truncate max-w-[70px]"
-              style={{ color: player.color }}
-            >
-              {player.name}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// Right side labels showing player names at last data point
-function RightLabels({
-  data,
-  players,
-  chartHeight,
-  maxRank,
-}: {
-  data: ChartDataPoint[];
-  players: PlayerChartInfo[];
-  chartHeight: number;
-  maxRank: number;
-}) {
-  if (data.length === 0) {
-    return null;
-  }
-
-  const lastPoint = data[data.length - 1];
-  const paddingTop = 20;
-  const paddingBottom = 40;
-  const effectiveHeight = chartHeight - paddingTop - paddingBottom;
-  const rankStep = effectiveHeight / (maxRank - 1 || 1);
-
-  return (
-    <div
-      className="absolute right-0 top-0 w-24 pointer-events-none"
-      style={{ height: chartHeight }}
-    >
-      {players.map((player) => {
-        const rank = (lastPoint[player.name] as number) || maxRank;
-        const yPos = paddingTop + (rank - 1) * rankStep;
-
-        return (
-          <div
-            key={player.id}
-            className="absolute flex items-center gap-1.5 text-xs font-medium transition-all duration-300"
-            style={{
-              top: yPos,
-              transform: "translateY(-50%)",
-              right: 4,
-            }}
-          >
-            <span
-              className="truncate max-w-[70px] text-right"
-              style={{ color: player.color }}
-            >
-              {player.name}
-            </span>
-            <div
-              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-              style={{ backgroundColor: player.color }}
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// Interval toggle button component
-function IntervalToggle({
-  interval,
-  onChange,
-}: {
-  interval: IntervalType;
-  onChange: (interval: IntervalType) => void;
-}) {
-  return (
-    <div className="flex items-center gap-1 bg-background rounded-lg p-1">
-      <button
-        type="button"
-        onClick={() => onChange("month")}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-          interval === "month"
-            ? "bg-primary text-primary-foreground"
-            : "text-foreground-muted hover:text-foreground hover:bg-background-elevated"
-        }`}
-      >
-        <CalendarDays className="w-4 h-4" />
-        <span className="hidden sm:inline">Mensual</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange("year")}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-          interval === "year"
-            ? "bg-primary text-primary-foreground"
-            : "text-foreground-muted hover:text-foreground hover:bg-background-elevated"
-        }`}
-      >
-        <Calendar className="w-4 h-4" />
-        <span className="hidden sm:inline">Anual</span>
-      </button>
-    </div>
-  );
-}
-
-type AnimationSpeed = 1 | 0.5 | 0.25;
-
-// Play/Pause toggle button
-function PlayPauseButton({
-  onToggle,
-  disabled,
-  isAnimating,
-}: {
-  onToggle: () => void;
-  disabled: boolean;
-  isAnimating: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      disabled={disabled}
-      className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-        disabled
-          ? "bg-background text-foreground-muted/60 cursor-not-allowed"
-          : isAnimating
-            ? "bg-danger/10 text-danger hover:bg-danger/20"
-            : "bg-primary text-primary-foreground hover:bg-primary/90"
-      }`}
-      title={isAnimating ? "Detener animación" : "Reproducir animación"}
-    >
-      {isAnimating ? (
-        <Pause className="w-4 h-4" />
-      ) : (
-        <Play className="w-4 h-4" />
-      )}
-    </button>
-  );
-}
-
-// Speed control buttons
-function SpeedControls({
-  speed,
-  onSpeedChange,
-  disabled,
-}: {
-  speed: AnimationSpeed;
-  onSpeedChange: (speed: AnimationSpeed) => void;
-  disabled: boolean;
-}) {
-  const speedOptions: AnimationSpeed[] = [1, 0.5, 0.25];
-
-  return (
-    <div className="flex items-center gap-1 bg-background rounded-lg p-1">
-      {speedOptions.map((option) => (
-        <button
-          key={option}
-          type="button"
-          onClick={() => onSpeedChange(option)}
-          disabled={disabled}
-          className={`px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
-            speed === option
-              ? "bg-primary text-primary-foreground"
-              : disabled
-                ? "text-foreground-muted/60"
-                : "text-foreground-muted hover:text-foreground hover:bg-background-elevated"
-          }`}
-          title={`Velocidad ${option}x`}
-        >
-          {option}x
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export default function RankingChart({
   hiddenPlayerIds,
 }: {
-  hiddenPlayerIds?: ReadonlySet<string>;
-} = {}) {
-  const [rawChartData, setRawChartData] = useState<RankingChartData | null>(
-    null,
-  );
+  hiddenPlayerIds: Set<string>;
+}) {
+  const [histories, setHistories] = useState<PlayerHistory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [interval, setInterval] = useState<IntervalType>("month");
-  const [animationSeed, setAnimationSeed] = useState(0);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [animationSpeed, setAnimationSpeed] = useState<AnimationSpeed>(1);
-  const animationTimeoutRef = useRef<number | null>(null);
 
-  const chartData = rawChartData
-    ? filterChartData(rawChartData, hiddenPlayerIds ?? new Set())
-    : null;
+  const [period, setPeriod] = useState<PeriodOption>("total");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [customLastGames, setCustomLastGames] = useState("");
 
-  const loadData = useCallback(async (intervalType: IntervalType) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getRankingEvolution(intervalType);
-      setRawChartData(data);
-    } catch (err) {
-      console.error("Error loading ranking chart:", err);
-      setError("Error al cargar el gráfico");
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      const data = await getPlayersHistory();
+      setHistories(data);
+      setLoading(false);
     }
-    setLoading(false);
+    load();
   }, []);
 
-  useEffect(() => {
-    loadData(interval);
-  }, [loadData, interval]);
+  const visibleHistories = useMemo(
+    () => histories.filter((h) => !hiddenPlayerIds.has(h.player.id)),
+    [histories, hiddenPlayerIds],
+  );
 
-  const handleIntervalChange = (newInterval: IntervalType) => {
-    setInterval(newInterval);
-  };
-  const baseAnimationDuration = 1200;
-  const animationDuration = Math.round(baseAnimationDuration / animationSpeed);
-  const isAnimationReady = !!chartData && chartData.dataPoints.length >= 2;
-
-  const handlePlayAnimation = () => {
-    if (!isAnimationReady) return;
-    if (animationTimeoutRef.current) {
-      window.clearTimeout(animationTimeoutRef.current);
-    }
-    setIsAnimating(true);
-    setAnimationSeed((seed) => seed + 1);
-    animationTimeoutRef.current = window.setTimeout(() => {
-      setIsAnimating(false);
-    }, animationDuration);
-  };
-
-  const handleStopAnimation = () => {
-    if (animationTimeoutRef.current) {
-      window.clearTimeout(animationTimeoutRef.current);
-      animationTimeoutRef.current = null;
-    }
-    setIsAnimating(false);
-  };
-
-  const handleToggleAnimation = () => {
-    if (isAnimating) {
-      handleStopAnimation();
-    } else {
-      handlePlayAnimation();
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (animationTimeoutRef.current) {
-        window.clearTimeout(animationTimeoutRef.current);
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    for (const history of visibleHistories) {
+      for (const entry of history.entries) {
+        years.add(new Date(entry.game.date).getFullYear());
       }
-    };
-  }, []);
+    }
+    return Array.from(years).sort((a, b) => b - a);
+  }, [visibleHistories]);
 
-  const emptyStateMessage =
-    interval === "month"
-      ? "Se necesitan al menos 2 meses de partidas"
-      : "Se necesitan al menos 2 años de partidas";
+  const options = useMemo((): EvolutionOptions => {
+    if (period === "total") return {};
+    if (period === "last5") return { lastGames: 5 };
+    if (period === "last3m") {
+      const from = new Date();
+      from.setMonth(from.getMonth() - 3);
+      return { from: from.toISOString().split("T")[0] };
+    }
+    if (period === "custom") {
+      const lastGames = parseInt(customLastGames, 10);
+      return {
+        from: customFrom || undefined,
+        to: customTo || undefined,
+        lastGames:
+          Number.isNaN(lastGames) || lastGames <= 0 ? undefined : lastGames,
+      };
+    }
+    return { from: `${period}-01-01`, to: `${period}-12-31` };
+  }, [period, customFrom, customTo, customLastGames]);
 
-  if (loading) {
-    return (
-      <div className="bg-background-card rounded-2xl border border-border p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-accent" />
-            <h2 className="text-lg font-semibold text-foreground">
-              Evolución del Ranking
-            </h2>
-          </div>
-          <IntervalToggle interval={interval} onChange={handleIntervalChange} />
-        </div>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      </div>
-    );
-  }
+  const evolution = useMemo(
+    () => computeRankingEvolution(visibleHistories, options),
+    [visibleHistories, options],
+  );
 
-  if (error) {
-    return (
-      <div className="bg-background-card rounded-2xl border border-border p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-accent" />
-            <h2 className="text-lg font-semibold text-foreground">
-              Evolución del Ranking
-            </h2>
-          </div>
-          <IntervalToggle interval={interval} onChange={handleIntervalChange} />
-        </div>
-        <div className="flex items-center justify-center h-64 text-danger">
-          {error}
-        </div>
-      </div>
-    );
-  }
+  const fullLabelByLabel = useMemo(
+    () =>
+      new Map(
+        evolution.points.map((p) => [p.label as string, p.fullLabel as string]),
+      ),
+    [evolution],
+  );
 
-  if (!chartData || chartData.dataPoints.length < 2) {
-    return (
-      <div className="bg-background-card rounded-2xl border border-border p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-accent" />
-            <h2 className="text-lg font-semibold text-foreground">
-              Evolución del Ranking
-            </h2>
-          </div>
-          <IntervalToggle interval={interval} onChange={handleIntervalChange} />
-        </div>
-        <div className="flex flex-col items-center justify-center h-64 text-foreground-muted">
-          <TrendingUp className="w-12 h-12 mb-3 opacity-50" />
-          <p>No hay suficientes datos para mostrar el gráfico</p>
-          <p className="text-sm">{emptyStateMessage}</p>
-        </div>
-      </div>
-    );
-  }
-
-  const { dataPoints, players, maxRank } = chartData;
-  const chartHeight = 400;
-  const dotDelayStep = animationDuration / Math.max(dataPoints.length - 1, 1);
-  const renderDot = ({
-    cx,
-    cy,
-    stroke,
-    fill,
-    index,
-  }: {
-    cx?: number;
-    cy?: number;
-    stroke?: string;
-    fill?: string;
-    index?: number;
-  }) => {
-    if (cx == null || cy == null) return null;
-    const delay = (index ?? 0) * dotDelayStep;
-    const style = isAnimating
-      ? ({
-          animation: `ranking-dot-pop ${animationDuration}ms ease-out ${delay}ms both`,
-          transformOrigin: "center",
-          transformBox: "fill-box",
-        } as React.CSSProperties)
-      : undefined;
-    return (
-      <circle
-        cx={cx}
-        cy={cy}
-        r="3"
-        fill={fill ?? stroke ?? "currentColor"}
-        stroke={stroke ?? "currentColor"}
-        strokeWidth="1.5"
-        className="sm:r-4 sm:stroke-2"
-        style={style}
-      />
-    );
-  };
+  const hasData = evolution.points.length > 0 && evolution.players.length > 0;
+  const chartHeight = Math.max(260, evolution.maxRank * 44 + 80);
 
   return (
-    <div className="bg-background-card rounded-2xl border border-border p-4 sm:p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-accent" />
-          <h2 className="text-lg font-semibold text-foreground">
-            Evolución del Ranking
-          </h2>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <PlayPauseButton
-            onToggle={handleToggleAnimation}
-            disabled={!isAnimationReady}
-            isAnimating={isAnimating}
-          />
-          <SpeedControls
-            speed={animationSpeed}
-            onSpeedChange={setAnimationSpeed}
-            disabled={!isAnimationReady}
-          />
-          <IntervalToggle interval={interval} onChange={handleIntervalChange} />
-        </div>
+    <section className="bg-background-card rounded-2xl p-4 sm:p-6 border border-border">
+      <div className="flex items-center gap-2 mb-1">
+        <TrendingUp className="w-5 h-5 text-accent" />
+        <h2 className="text-lg font-semibold text-foreground">
+          Evolución del Ranking
+        </h2>
+      </div>
+      <p className="text-xs text-foreground-muted mb-4">
+        Posición tras cada partida según el balance acumulado del periodo
+        elegido
+      </p>
+
+      {/* Filtro de periodo */}
+      <div className="flex items-center gap-1 bg-background rounded-lg p-1 flex-wrap w-fit mb-2">
+        <SegmentedButton
+          active={period === "total"}
+          onClick={() => setPeriod("total")}
+        >
+          Total
+        </SegmentedButton>
+        {availableYears.map((year) => (
+          <SegmentedButton
+            key={year}
+            active={period === year}
+            onClick={() => setPeriod(year)}
+          >
+            {year}
+          </SegmentedButton>
+        ))}
+        <SegmentedButton
+          active={period === "last3m"}
+          onClick={() => setPeriod("last3m")}
+        >
+          Últ. 3 meses
+        </SegmentedButton>
+        <SegmentedButton
+          active={period === "last5"}
+          onClick={() => setPeriod("last5")}
+        >
+          Últ. 5 partidas
+        </SegmentedButton>
+        <SegmentedButton
+          active={period === "custom"}
+          onClick={() => setPeriod("custom")}
+        >
+          Personalizado
+        </SegmentedButton>
       </div>
 
-      <style jsx global>{`
-        @keyframes ranking-dot-pop {
-          0% {
-            transform: scale(0.6);
-            opacity: 0;
-          }
-          100% {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-      `}</style>
+      {/* Filtros personalizados: fechas y últimas N partidas, combinables */}
+      {period === "custom" && (
+        <div className="flex items-center gap-2 flex-wrap mb-2">
+          <input
+            type="date"
+            value={customFrom}
+            onChange={(e) => setCustomFrom(e.target.value)}
+            className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm focus:border-primary outline-none"
+          />
+          <span className="text-foreground-muted text-sm">a</span>
+          <input
+            type="date"
+            value={customTo}
+            onChange={(e) => setCustomTo(e.target.value)}
+            className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm focus:border-primary outline-none"
+          />
+          <label className="flex items-center gap-1.5 text-sm text-foreground-muted">
+            últimas
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              value={customLastGames}
+              onChange={(e) => setCustomLastGames(e.target.value)}
+              placeholder="N"
+              className="w-16 px-2 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm focus:border-primary outline-none"
+            />
+            partidas
+          </label>
+        </div>
+      )}
 
-      {/* Chart container with side labels */}
-      <div className="relative">
-        {/* Left labels */}
-        <LeftLabels
-          data={dataPoints}
-          players={players}
-          chartHeight={chartHeight}
-          maxRank={maxRank}
-        />
-
-        {/* Main chart */}
-        <div className="mx-24">
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-7 h-7 animate-spin text-primary" />
+        </div>
+      ) : !hasData ? (
+        <div className="flex flex-col items-center justify-center h-48 text-foreground-muted">
+          <TrendingUp className="w-10 h-10 mb-2 opacity-50" />
+          <p className="text-sm">No hay partidas en este periodo</p>
+        </div>
+      ) : (
+        <>
+          <span className="block text-xs text-foreground-muted mb-2">
+            {evolution.points.length} partida
+            {evolution.points.length !== 1 ? "s" : ""} ·{" "}
+            {evolution.players.length} jugadores
+          </span>
           <ResponsiveContainer width="100%" height={chartHeight}>
             <LineChart
-              key={`ranking-chart-${animationSeed}`}
-              data={dataPoints}
-              margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
+              data={evolution.points}
+              margin={{ top: 10, right: 15, left: 0, bottom: 10 }}
             >
-              {/* Grid lines for each rank */}
-              {Array.from({ length: maxRank }, (_, i) => i + 1).map((rank) => (
-                <line
-                  key={rank}
-                  x1="0%"
-                  x2="100%"
-                  y1={`${((rank - 1) / (maxRank - 1 || 1)) * 100}%`}
-                  y2={`${((rank - 1) / (maxRank - 1 || 1)) * 100}%`}
-                  stroke="var(--border)"
-                  strokeOpacity={0.5}
-                  strokeDasharray="4 4"
-                />
-              ))}
-
               <XAxis
-                dataKey="periodLabel"
+                dataKey="label"
+                axisLine={{ stroke: "var(--border)" }}
+                tickLine={{ stroke: "var(--border)" }}
+                tick={{ fill: "var(--foreground-muted)", fontSize: 10 }}
+                interval="preserveStartEnd"
+                minTickGap={30}
+                tickFormatter={(value: string) => value.split("·")[1] ?? value}
+              />
+              <YAxis
+                reversed
+                domain={[1, Math.max(evolution.maxRank, 2)]}
+                ticks={Array.from(
+                  { length: evolution.maxRank },
+                  (_, i) => i + 1,
+                )}
+                allowDecimals={false}
                 axisLine={{ stroke: "var(--border)" }}
                 tickLine={{ stroke: "var(--border)" }}
                 tick={{ fill: "var(--foreground-muted)", fontSize: 11 }}
-                interval="preserveStartEnd"
-                minTickGap={40}
+                tickFormatter={(value: number) => `${value}º`}
+                width={36}
               />
-
-              <YAxis
-                domain={[1, maxRank]}
-                reversed
-                axisLine={{ stroke: "var(--border)" }}
-                tickLine={{ stroke: "var(--border)" }}
-                tick={CustomYAxisTick}
-                ticks={Array.from({ length: maxRank }, (_, i) => i + 1)}
-                width={25}
-              />
-
               <Tooltip
                 content={(props) => (
-                  <CustomTooltip {...props} players={players} />
+                  <RankTooltip
+                    {...props}
+                    players={evolution.players}
+                    fullLabelByLabel={fullLabelByLabel}
+                  />
                 )}
               />
-
-              {/* One line per player */}
-              {players.map((player) => (
+              {evolution.players.map((player) => (
                 <Line
                   key={player.id}
                   type="monotone"
                   dataKey={player.name}
                   stroke={player.color}
                   strokeWidth={2.5}
-                  isAnimationActive={isAnimating}
-                  animationDuration={animationDuration}
-                  animationEasing="linear"
-                  dot={renderDot}
+                  dot={{
+                    fill: player.color,
+                    stroke: player.color,
+                    strokeWidth: 1.5,
+                    r: 3,
+                  }}
                   activeDot={{
                     fill: player.color,
                     stroke: "var(--background)",
                     strokeWidth: 2,
-                    r: 6,
+                    r: 5.5,
                   }}
                   connectNulls
+                  isAnimationActive={false}
                 />
               ))}
             </LineChart>
           </ResponsiveContainer>
-        </div>
 
-        {/* Right labels */}
-        <RightLabels
-          data={dataPoints}
-          players={players}
-          chartHeight={chartHeight}
-          maxRank={maxRank}
-        />
-      </div>
-
-      {/* Legend (mobile-friendly) */}
-      <div className="mt-4 flex flex-wrap gap-3 justify-center sm:hidden">
-        {players.map((player) => (
-          <div key={player.id} className="flex items-center gap-1.5 text-xs">
-            <div
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: player.color }}
-            />
-            <span className="text-foreground-muted">{player.name}</span>
+          {/* Clasificación final del periodo como leyenda */}
+          <div className="mt-3 flex flex-wrap gap-2 justify-center">
+            {evolution.players.map((player) => (
+              <div
+                key={player.id}
+                className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full bg-background border border-border"
+              >
+                <span className="font-bold text-foreground-muted">
+                  {player.finalRank}º
+                </span>
+                {player.avatarUrl ? (
+                  <img
+                    src={player.avatarUrl}
+                    alt={player.name}
+                    className="w-4 h-4 rounded-full object-cover"
+                  />
+                ) : (
+                  <span
+                    className="w-2.5 h-2.5 rounded-full inline-block"
+                    style={{ backgroundColor: player.color }}
+                  />
+                )}
+                <span className="text-foreground font-medium">
+                  {player.name}
+                </span>
+                <span
+                  className={`font-semibold ${
+                    player.balance > 0
+                      ? "text-success"
+                      : player.balance < 0
+                        ? "text-danger"
+                        : "text-foreground-muted"
+                  }`}
+                >
+                  {player.balance > 0 ? "+" : ""}
+                  {player.balance.toFixed(2)}€
+                </span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-    </div>
+        </>
+      )}
+    </section>
   );
 }
