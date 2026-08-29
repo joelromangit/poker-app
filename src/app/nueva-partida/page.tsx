@@ -863,8 +863,8 @@ export default function NuevaPartidaPage() {
                     {/* Ciegas en fichas */}
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div>
-                        <label className="block text-sm text-foreground-muted mb-2">
-                          Ciega pequeña (fichas)
+                        <label className="block text-sm text-foreground-muted mb-2 whitespace-nowrap">
+                          SB (fichas)
                         </label>
                         <NumberInput
                           value={smallBlind}
@@ -875,8 +875,8 @@ export default function NuevaPartidaPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm text-foreground-muted mb-2">
-                          Ciega grande (fichas)
+                        <label className="block text-sm text-foreground-muted mb-2 whitespace-nowrap">
+                          BB (fichas)
                         </label>
                         <NumberInput
                           value={bigBlind}
