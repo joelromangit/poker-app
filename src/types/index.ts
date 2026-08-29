@@ -23,6 +23,7 @@ export interface GameSummary {
   worst_loser_profit: number;
   participants: string[]; // Lista de nombres de todos los participantes
   player_results: { name: string; profit: number }[]; // Resultado de cada participante
+  entry_eur?: number; // Entrada de la partida en € (buy-in base × valor ficha)
 }
 
 // Estadísticas de un jugador

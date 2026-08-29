@@ -27,6 +27,8 @@ export async function getGamesSummary(): Promise<GameSummary[]> {
       created_at,
       name,
       total_pot,
+      buy_in,
+      chip_value,
       game_players (
         profit,
         players (name)
@@ -77,6 +79,7 @@ export async function getGamesSummary(): Promise<GameSummary[]> {
       worst_loser_profit: worstLoser?.profit || 0,
       participants,
       player_results: playerResults,
+      entry_eur: Math.round((game.buy_in || 0) * (game.chip_value || 0) * 100) / 100,
     };
   });
 }
