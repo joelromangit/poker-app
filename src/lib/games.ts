@@ -29,6 +29,8 @@ export async function getGamesSummary(): Promise<GameSummary[]> {
       total_pot,
       buy_in,
       chip_value,
+      small_blind,
+      big_blind,
       game_players (
         profit,
         players (name)
@@ -80,6 +82,8 @@ export async function getGamesSummary(): Promise<GameSummary[]> {
       participants,
       player_results: playerResults,
       entry_eur: Math.round((game.buy_in || 0) * (game.chip_value || 0) * 100) / 100,
+      small_blind: game.small_blind ?? undefined,
+      big_blind: game.big_blind ?? undefined,
     };
   });
 }

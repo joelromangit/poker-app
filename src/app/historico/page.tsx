@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Banknote,
   Calendar,
   ChartLine,
   Check,
@@ -188,6 +189,8 @@ function HistoricoContent() {
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  // Filtro por entrada de la partida (5€/10€/20€...); "all" = todas
+  const [entryFilter, setEntryFilter] = useState<number | "all">("all");
   const [resultFilter, setResultFilter] = useState<ResultFilter>("all");
   const [gameScope, setGameScope] = useState<GameScope>("common");
   const [chartMode, setChartMode] = useState<ChartMode>("perGame");
@@ -238,6 +241,28 @@ function HistoricoContent() {
     return Array.from(years).sort((a, b) => b - a);
   }, [histories]);
 
+  // Entradas disponibles según los datos (chips del filtro de formato)
+  const availableEntries = useMemo(() => {
+    const entries = new Set<number>();
+    for (const history of histories) {
+      for (const entry of history.entries) {
+        if (entry.game.entryEur && entry.game.entryEur > 0) {
+          entries.add(entry.game.entryEur);
+        }
+      }
+    }
+    return Array.from(entries).sort((a, b) => a - b);
+  }, [histories]);
+
+  // Aplicar el filtro de entrada a un conjunto de entradas del histórico
+  const applyEntryFilter = useMemo(
+    () => (entries: HistoryEntry[]) =>
+      entryFilter === "all"
+        ? entries
+        : entries.filter((e) => e.game.entryEur === entryFilter),
+    [entryFilter],
+  );
+
   // Rango de fechas efectivo según el filtro de periodo
   const effectiveRange = useMemo((): { from?: string; to?: string } => {
     if (periodFilter === "all") return {};
@@ -264,10 +289,12 @@ function HistoricoContent() {
   const filteredHistories = useMemo(() => {
     const dateFiltered = selectedHistories.map((history) => ({
       player: history.player,
-      entries: filterEntriesByDate(
-        history.entries,
-        effectiveRange.from,
-        effectiveRange.to,
+      entries: applyEntryFilter(
+        filterEntriesByDate(
+          history.entries,
+          effectiveRange.from,
+          effectiveRange.to,
+        ),
       ),
     }));
 
@@ -278,7 +305,7 @@ function HistoricoContent() {
       player: history.player,
       entries: history.entries.filter((e) => commonIds.has(e.game.id)),
     }));
-  }, [selectedHistories, effectiveRange, useCommonScope]);
+  }, [selectedHistories, effectiveRange, useCommonScope, applyEntryFilter]);
 
   // Estadísticas por jugador (sobre fecha+ámbito, sin filtro de resultado)
   const statsByPlayer = useMemo(
@@ -398,14 +425,12 @@ function HistoricoContent() {
   const headToHead = useMemo(() => {
     if (!isDuel) return null;
     const [a, b] = selectedHistories;
-    const dateFilteredA = filterEntriesByDate(
-      a.entries,
-      effectiveRange.from,
-      effectiveRange.to,
+    const dateFilteredA = applyEntryFilter(
+      filterEntriesByDate(a.entries, effectiveRange.from, effectiveRange.to),
     );
     const gameIds = new Set(dateFilteredA.map((e) => e.game.id));
     return computeHeadToHead(a, b, gameIds);
-  }, [isDuel, selectedHistories, effectiveRange]);
+  }, [isDuel, selectedHistories, effectiveRange, applyEntryFilter]);
 
   // Matriz de dominación: cara a cara de todos contra todos (3+ jugadores)
   const dominationMatrix = useMemo(() => {
@@ -413,16 +438,18 @@ function HistoricoContent() {
     return selectedHistories.map((rowHistory) =>
       selectedHistories.map((colHistory) => {
         if (rowHistory.player.id === colHistory.player.id) return null;
-        const dateFiltered = filterEntriesByDate(
-          rowHistory.entries,
-          effectiveRange.from,
-          effectiveRange.to,
+        const dateFiltered = applyEntryFilter(
+          filterEntriesByDate(
+            rowHistory.entries,
+            effectiveRange.from,
+            effectiveRange.to,
+          ),
         );
         const gameIds = new Set(dateFiltered.map((e) => e.game.id));
         return computeHeadToHead(rowHistory, colHistory, gameIds);
       }),
     );
-  }, [selectedHistories, effectiveRange]);
+  }, [selectedHistories, effectiveRange, applyEntryFilter]);
 
   const hasChartData = chartData.length > 0 && selectedHistories.length > 0;
 
@@ -571,6 +598,37 @@ function HistoricoContent() {
                     )}
                   </div>
                 </div>
+
+                {/* Entrada (formato de la partida) */}
+                {availableEntries.length > 1 && (
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-xs text-foreground-muted font-medium w-16 flex items-center gap-1">
+                      <Banknote className="w-3.5 h-3.5" />
+                      Entrada
+                    </span>
+                    <div className="flex items-center gap-1 bg-background rounded-lg p-1 w-fit flex-wrap">
+                      <SegmentedButton
+                        active={entryFilter === "all"}
+                        onClick={() => setEntryFilter("all")}
+                      >
+                        Todas
+                      </SegmentedButton>
+                      {availableEntries.map((entry) => (
+                        <SegmentedButton
+                          key={entry}
+                          active={entryFilter === entry}
+                          onClick={() =>
+                            setEntryFilter(
+                              entryFilter === entry ? "all" : entry,
+                            )
+                          }
+                        >
+                          {Number(entry.toFixed(2))}€
+                        </SegmentedButton>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Resultado */}
                 <div className="flex items-center gap-3 flex-wrap">
@@ -977,41 +1035,43 @@ function HistoricoContent() {
                                 <td className="text-xs font-medium text-foreground pr-1 whitespace-nowrap max-w-[90px] truncate">
                                   {rowHistory.player.name}
                                 </td>
-                                {selectedHistories.map((colHistory, colIndex) => {
-                                  const cell =
-                                    dominationMatrix[rowIndex][colIndex];
-                                  if (!cell) {
+                                {selectedHistories.map(
+                                  (colHistory, colIndex) => {
+                                    const cell =
+                                      dominationMatrix[rowIndex][colIndex];
+                                    if (!cell) {
+                                      return (
+                                        <td
+                                          key={colHistory.player.id}
+                                          className="text-center text-foreground-muted/40 bg-background rounded-lg py-2 text-xs"
+                                        >
+                                          —
+                                        </td>
+                                      );
+                                    }
+                                    const leads = cell.aWins > cell.bWins;
+                                    const trails = cell.aWins < cell.bWins;
                                     return (
                                       <td
                                         key={colHistory.player.id}
-                                        className="text-center text-foreground-muted/40 bg-background rounded-lg py-2 text-xs"
+                                        className={`text-center rounded-lg py-2 text-xs font-bold ${
+                                          cell.commonGames === 0
+                                            ? "bg-background text-foreground-muted/40"
+                                            : leads
+                                              ? "bg-success/15 text-success"
+                                              : trails
+                                                ? "bg-danger/15 text-danger"
+                                                : "bg-background text-foreground-muted"
+                                        }`}
+                                        title={`${rowHistory.player.name} ${cell.aWins} - ${cell.bWins} ${colHistory.player.name} (${cell.commonGames} en común${cell.draws > 0 ? `, ${cell.draws} empates` : ""})`}
                                       >
-                                        —
+                                        {cell.commonGames === 0
+                                          ? "·"
+                                          : `${cell.aWins}-${cell.bWins}`}
                                       </td>
                                     );
-                                  }
-                                  const leads = cell.aWins > cell.bWins;
-                                  const trails = cell.aWins < cell.bWins;
-                                  return (
-                                    <td
-                                      key={colHistory.player.id}
-                                      className={`text-center rounded-lg py-2 text-xs font-bold ${
-                                        cell.commonGames === 0
-                                          ? "bg-background text-foreground-muted/40"
-                                          : leads
-                                            ? "bg-success/15 text-success"
-                                            : trails
-                                              ? "bg-danger/15 text-danger"
-                                              : "bg-background text-foreground-muted"
-                                      }`}
-                                      title={`${rowHistory.player.name} ${cell.aWins} - ${cell.bWins} ${colHistory.player.name} (${cell.commonGames} en común${cell.draws > 0 ? `, ${cell.draws} empates` : ""})`}
-                                    >
-                                      {cell.commonGames === 0
-                                        ? "·"
-                                        : `${cell.aWins}-${cell.bWins}`}
-                                    </td>
-                                  );
-                                })}
+                                  },
+                                )}
                               </tr>
                             ))}
                           </tbody>

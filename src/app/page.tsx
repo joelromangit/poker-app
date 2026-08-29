@@ -1,28 +1,49 @@
-'use client';
+"use client";
 
-import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import Header from '@/components/Header';
-import GameCard from '@/components/GameCard';
-import EmptyState from '@/components/EmptyState';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import AggregateSummary from '@/components/AggregateSummary';
-import { computeGamesAggregate } from '@/lib/aggregate';
-import { getGamesSummary } from '@/lib/games';
-import { getHomeStats, HomeStats, getPlayers, getPlayerStats, getAvatarColor } from '@/lib/players';
-import { GameSummary, Player, PlayerStats } from '@/types';
-import { Trophy, RefreshCw, Spade, FileWarning, ArrowRight, X, Search, Users, ChevronDown, TrendingUp, TrendingDown, Sigma } from 'lucide-react';
-import { getDraft, clearDraft } from './nueva-partida/page';
-import { InstallBanner } from '@/components/InstallPrompt';
+import {
+  ArrowRight,
+  ChevronDown,
+  FileWarning,
+  RefreshCw,
+  Search,
+  Sigma,
+  Spade,
+  TrendingDown,
+  TrendingUp,
+  Trophy,
+  Users,
+  X,
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import AggregateSummary from "@/components/AggregateSummary";
+import EmptyState from "@/components/EmptyState";
+import GameCard from "@/components/GameCard";
+import Header from "@/components/Header";
+import { InstallBanner } from "@/components/InstallPrompt";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { computeGamesAggregate } from "@/lib/aggregate";
+import { getGamesSummary } from "@/lib/games";
+import {
+  getAvatarColor,
+  getHomeStats,
+  getPlayerStats,
+  getPlayers,
+  type HomeStats,
+} from "@/lib/players";
+import type { GameSummary, Player, PlayerStats } from "@/types";
+import { clearDraft, getDraft } from "./nueva-partida/page";
 
 export default function Home() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center py-12">
-        <div className="w-12 h-12 rounded-full border-4 border-border border-t-primary animate-spin" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-12">
+          <div className="w-12 h-12 rounded-full border-4 border-border border-t-primary animate-spin" />
+        </div>
+      }
+    >
       <HomeContent />
     </Suspense>
   );
@@ -32,15 +53,24 @@ function HomeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [games, setGames] = useState<GameSummary[]>([]);
-  const [homeStats, setHomeStats] = useState<HomeStats>({ leader: null, rebuyKing: null });
+  const [homeStats, setHomeStats] = useState<HomeStats>({
+    leader: null,
+    rebuyKing: null,
+  });
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
-  const [draftInfo, setDraftInfo] = useState<{ playerCount: number; savedAt: string } | null>(null);
+  const [draftInfo, setDraftInfo] = useState<{
+    playerCount: number;
+    savedAt: string;
+  } | null>(null);
   const [showDraftBanner, setShowDraftBanner] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [playerFilter, setPlayerFilter] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [playerFilter, setPlayerFilter] = useState<string>("");
   const [showPlayerDropdown, setShowPlayerDropdown] = useState(false);
-  const [filteredPlayerStats, setFilteredPlayerStats] = useState<PlayerStats | null>(null);
+  const [filteredPlayerStats, setFilteredPlayerStats] =
+    useState<PlayerStats | null>(null);
+  // Filtro por entrada de la partida (5€/10€/20€...); null = todas
+  const [entryFilter, setEntryFilter] = useState<number | null>(null);
   // Modo selección de partidas para ver su acumulado
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -48,7 +78,7 @@ function HomeContent() {
 
   // Leer el parámetro de jugador de la URL
   useEffect(() => {
-    const jugadorParam = searchParams.get('jugador');
+    const jugadorParam = searchParams.get("jugador");
     if (jugadorParam) {
       setPlayerFilter(jugadorParam);
     }
@@ -58,7 +88,7 @@ function HomeContent() {
   useEffect(() => {
     async function loadPlayerStats() {
       if (playerFilter && players.length > 0) {
-        const player = players.find(p => p.name === playerFilter);
+        const player = players.find((p) => p.name === playerFilter);
         if (player) {
           const stats = await getPlayerStats(player.id);
           setFilteredPlayerStats(stats);
@@ -80,7 +110,7 @@ function HomeContent() {
     const [gamesData, statsData, playersData] = await Promise.all([
       getGamesSummary(),
       getHomeStats(),
-      getPlayers()
+      getPlayers(),
     ]);
     setGames(gamesData);
     setHomeStats(statsData);
@@ -113,23 +143,35 @@ function HomeContent() {
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return 'Hace un momento';
+    if (diffMins < 1) return "Hace un momento";
     if (diffMins < 60) return `Hace ${diffMins} min`;
     if (diffHours < 24) return `Hace ${diffHours}h`;
-    if (diffDays === 1) return 'Ayer';
+    if (diffDays === 1) return "Ayer";
     return `Hace ${diffDays} días`;
   }
 
-  // Filtrar partidas por búsqueda y/o jugador
-  const filteredGames = games.filter(game => {
+  // Entradas disponibles según los datos (para los chips de formato)
+  const availableEntries = Array.from(
+    new Set(
+      games
+        .map((g) => g.entry_eur)
+        .filter((e): e is number => e != null && e > 0),
+    ),
+  ).sort((a, b) => a - b);
+
+  // Filtrar partidas por entrada, búsqueda y/o jugador
+  const filteredGames = games.filter((game) => {
+    // Filtrar por entrada (formato) si está seleccionada
+    if (entryFilter !== null && game.entry_eur !== entryFilter) return false;
+
     // Filtrar por jugador si está seleccionado
     if (playerFilter) {
-      const hasPlayer = game.participants.some(name => 
-        name.toLowerCase() === playerFilter.toLowerCase()
+      const hasPlayer = game.participants.some(
+        (name) => name.toLowerCase() === playerFilter.toLowerCase(),
       );
       if (!hasPlayer) return false;
     }
-    
+
     // Filtrar por búsqueda de texto
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase().trim();
@@ -137,18 +179,23 @@ function HomeContent() {
     if (game.name?.toLowerCase().includes(query)) return true;
     // Buscar en fecha
     const date = new Date(game.created_at);
-    const dateStr = date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    const dateStr = date.toLocaleDateString("es-ES", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
     if (dateStr.toLowerCase().includes(query)) return true;
     // Buscar en participantes (incluye ganador y perdedor)
-    if (game.participants?.some(name => name.toLowerCase().includes(query))) return true;
+    if (game.participants?.some((name) => name.toLowerCase().includes(query)))
+      return true;
     return false;
   });
 
   // Limpiar filtro de jugador
   const clearPlayerFilter = () => {
-    setPlayerFilter('');
-    if (searchParams.get('jugador')) {
-      router.push('/');
+    setPlayerFilter("");
+    if (searchParams.get("jugador")) {
+      router.push("/");
     }
   };
 
@@ -169,7 +216,7 @@ function HomeContent() {
 
   // Marcar/desmarcar una partida en el modo selección
   const toggleGameSelected = (gameId: string) => {
-    setSelectedIds(prev => {
+    setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(gameId)) next.delete(gameId);
       else next.add(gameId);
@@ -181,12 +228,14 @@ function HomeContent() {
   const totalGames = games.length;
 
   // Obtener datos del jugador filtrado
-  const selectedPlayer = playerFilter ? players.find(p => p.name === playerFilter) : null;
+  const selectedPlayer = playerFilter
+    ? players.find((p) => p.name === playerFilter)
+    : null;
 
   return (
     <>
       <Header />
-      
+
       <main className="flex-1">
         {/* Banner de partida en borrador */}
         {showDraftBanner && draftInfo && (
@@ -202,7 +251,8 @@ function HomeContent() {
                       Tienes una partida sin terminar
                     </p>
                     <p className="text-xs text-foreground-muted">
-                      {draftInfo.playerCount} jugadores • {formatDraftTime(draftInfo.savedAt)}
+                      {draftInfo.playerCount} jugadores •{" "}
+                      {formatDraftTime(draftInfo.savedAt)}
                     </p>
                   </div>
                 </div>
@@ -234,71 +284,98 @@ function HomeContent() {
               {/* Estadísticas del jugador filtrado */}
               {playerFilter && selectedPlayer && filteredPlayerStats ? (
                 <div>
-                <div className="grid grid-cols-3 gap-4 sm:gap-6">
-                  {/* Avatar y nombre del jugador */}
-                  <div className="bg-background-card/80 backdrop-blur rounded-xl p-4 sm:p-6 text-center border border-primary/50 animate-fade-in">
-                    <div className="relative w-12 h-12 sm:w-14 sm:h-14 mx-auto mb-2 sm:mb-3">
-                      {selectedPlayer.avatar_url ? (
-                        <img
-                          src={selectedPlayer.avatar_url}
-                          alt={selectedPlayer.name}
-                          className="w-full h-full rounded-full object-cover border-2 border-primary"
-                        />
-                      ) : (
-                        <div
-                          className="w-full h-full rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-xl border-2 border-primary"
-                          style={{ backgroundColor: getAvatarColor(selectedPlayer.avatar_color) }}
-                        >
-                          {selectedPlayer.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
+                  <div className="grid grid-cols-3 gap-4 sm:gap-6">
+                    {/* Avatar y nombre del jugador */}
+                    <div className="bg-background-card/80 backdrop-blur rounded-xl p-4 sm:p-6 text-center border border-primary/50 animate-fade-in">
+                      <div className="relative w-12 h-12 sm:w-14 sm:h-14 mx-auto mb-2 sm:mb-3">
+                        {selectedPlayer.avatar_url ? (
+                          <img
+                            src={selectedPlayer.avatar_url}
+                            alt={selectedPlayer.name}
+                            className="w-full h-full rounded-full object-cover border-2 border-primary"
+                          />
+                        ) : (
+                          <div
+                            className="w-full h-full rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-xl border-2 border-primary"
+                            style={{
+                              backgroundColor: getAvatarColor(
+                                selectedPlayer.avatar_color,
+                              ),
+                            }}
+                          >
+                            {selectedPlayer.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-sm sm:text-base font-bold text-foreground truncate">
+                        {selectedPlayer.name}
+                      </p>
+                      <p className="text-xs sm:text-sm text-primary font-medium">
+                        {filteredPlayerStats.total_games} partidas
+                      </p>
                     </div>
-                    <p className="text-sm sm:text-base font-bold text-foreground truncate">{selectedPlayer.name}</p>
-                    <p className="text-xs sm:text-sm text-primary font-medium">{filteredPlayerStats.total_games} partidas</p>
-                  </div>
-                  
-                  {/* Ganancia promedio */}
-                  <div className="bg-background-card/80 backdrop-blur rounded-xl p-4 sm:p-6 text-center border border-border animate-fade-in" style={{ animationDelay: '0.1s' }}>
-                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3 ${
-                      filteredPlayerStats.average_per_game >= 0 ? 'bg-success/20' : 'bg-danger/20'
-                    }`}>
-                      {filteredPlayerStats.average_per_game >= 0 ? (
-                        <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-success" />
-                      ) : (
-                        <TrendingDown className="w-5 h-5 sm:w-6 sm:h-6 text-danger" />
-                      )}
-                    </div>
-                    <p className={`text-xl sm:text-2xl font-bold ${
-                      filteredPlayerStats.average_per_game >= 0 ? 'text-success' : 'text-danger'
-                    }`}>
-                      {filteredPlayerStats.average_per_game >= 0 ? '+' : ''}{filteredPlayerStats.average_per_game.toFixed(2)}€
-                    </p>
-                    <p className="text-xs sm:text-sm text-foreground-muted">Media por partida</p>
-                  </div>
-                  
-                  {/* Winrate */}
-                  <div className="bg-background-card/80 backdrop-blur rounded-xl p-4 sm:p-6 text-center border border-border animate-fade-in" style={{ animationDelay: '0.2s' }}>
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-accent/20 flex items-center justify-center mx-auto mb-2 sm:mb-3">
-                      <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
-                    </div>
-                    <p className="text-xl sm:text-2xl font-bold text-foreground">
-                      {filteredPlayerStats.win_rate.toFixed(0)}%
-                    </p>
-                    <p className="text-xs sm:text-sm text-foreground-muted">Victorias</p>
-                  </div>
-                </div>
 
-                {/* Enlace al histórico completo del jugador */}
-                <div className="mt-4 text-center">
-                  <Link
-                    href={`/historico?jugador=${encodeURIComponent(selectedPlayer.name)}`}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-background-card/80 backdrop-blur border border-border text-sm font-medium text-primary hover:border-primary transition-colors"
-                  >
-                    <TrendingUp className="w-4 h-4" />
-                    Ver histórico completo de {selectedPlayer.name}
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </div>
+                    {/* Ganancia promedio */}
+                    <div
+                      className="bg-background-card/80 backdrop-blur rounded-xl p-4 sm:p-6 text-center border border-border animate-fade-in"
+                      style={{ animationDelay: "0.1s" }}
+                    >
+                      <div
+                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3 ${
+                          filteredPlayerStats.average_per_game >= 0
+                            ? "bg-success/20"
+                            : "bg-danger/20"
+                        }`}
+                      >
+                        {filteredPlayerStats.average_per_game >= 0 ? (
+                          <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-success" />
+                        ) : (
+                          <TrendingDown className="w-5 h-5 sm:w-6 sm:h-6 text-danger" />
+                        )}
+                      </div>
+                      <p
+                        className={`text-xl sm:text-2xl font-bold ${
+                          filteredPlayerStats.average_per_game >= 0
+                            ? "text-success"
+                            : "text-danger"
+                        }`}
+                      >
+                        {filteredPlayerStats.average_per_game >= 0 ? "+" : ""}
+                        {filteredPlayerStats.average_per_game.toFixed(2)}€
+                      </p>
+                      <p className="text-xs sm:text-sm text-foreground-muted">
+                        Media por partida
+                      </p>
+                    </div>
+
+                    {/* Winrate */}
+                    <div
+                      className="bg-background-card/80 backdrop-blur rounded-xl p-4 sm:p-6 text-center border border-border animate-fade-in"
+                      style={{ animationDelay: "0.2s" }}
+                    >
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-accent/20 flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                        <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
+                      </div>
+                      <p className="text-xl sm:text-2xl font-bold text-foreground">
+                        {filteredPlayerStats.win_rate.toFixed(0)}%
+                      </p>
+                      <p className="text-xs sm:text-sm text-foreground-muted">
+                        Victorias
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Enlace al histórico completo del jugador */}
+                  <div className="mt-4 text-center">
+                    <Link
+                      href={`/historico?jugador=${encodeURIComponent(selectedPlayer.name)}`}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-background-card/80 backdrop-blur border border-border text-sm font-medium text-primary hover:border-primary transition-colors"
+                    >
+                      <TrendingUp className="w-4 h-4" />
+                      Ver histórico completo de {selectedPlayer.name}
+                      <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  </div>
                 </div>
               ) : (
                 /* Estadísticas globales */
@@ -308,12 +385,19 @@ function HomeContent() {
                     <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-2 sm:mb-3">
                       <Spade className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                     </div>
-                    <p className="text-xl sm:text-3xl font-bold text-foreground">{totalGames}</p>
-                    <p className="text-xs sm:text-sm text-foreground-muted">Partidas</p>
+                    <p className="text-xl sm:text-3xl font-bold text-foreground">
+                      {totalGames}
+                    </p>
+                    <p className="text-xs sm:text-sm text-foreground-muted">
+                      Partidas
+                    </p>
                   </div>
-                  
+
                   {/* Líder actual */}
-                  <div className="bg-background-card/80 backdrop-blur rounded-xl p-4 sm:p-6 text-center border border-border animate-fade-in" style={{ animationDelay: '0.1s' }}>
+                  <div
+                    className="bg-background-card/80 backdrop-blur rounded-xl p-4 sm:p-6 text-center border border-border animate-fade-in"
+                    style={{ animationDelay: "0.1s" }}
+                  >
                     {homeStats.leader ? (
                       <>
                         <div className="relative w-12 h-12 sm:w-14 sm:h-14 mx-auto mb-2 sm:mb-3">
@@ -326,18 +410,28 @@ function HomeContent() {
                           ) : (
                             <div
                               className="w-full h-full rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-xl border-2 border-accent"
-                              style={{ backgroundColor: homeStats.leader.player.avatar_color }}
+                              style={{
+                                backgroundColor:
+                                  homeStats.leader.player.avatar_color,
+                              }}
                             >
-                              {homeStats.leader.player.name.charAt(0).toUpperCase()}
+                              {homeStats.leader.player.name
+                                .charAt(0)
+                                .toUpperCase()}
                             </div>
                           )}
                           <div className="absolute -top-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-accent rounded-full flex items-center justify-center">
                             <Trophy className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                           </div>
                         </div>
-                        <p className="text-sm sm:text-base font-bold text-foreground truncate">{homeStats.leader.player.name}</p>
-                        <p className={`text-xs sm:text-sm font-medium ${homeStats.leader.balance >= 0 ? 'text-success' : 'text-danger'}`}>
-                          {homeStats.leader.balance >= 0 ? '+' : ''}{homeStats.leader.balance.toFixed(2)}€
+                        <p className="text-sm sm:text-base font-bold text-foreground truncate">
+                          {homeStats.leader.player.name}
+                        </p>
+                        <p
+                          className={`text-xs sm:text-sm font-medium ${homeStats.leader.balance >= 0 ? "text-success" : "text-danger"}`}
+                        >
+                          {homeStats.leader.balance >= 0 ? "+" : ""}
+                          {homeStats.leader.balance.toFixed(2)}€
                         </p>
                       </>
                     ) : (
@@ -348,11 +442,16 @@ function HomeContent() {
                         <p className="text-sm text-foreground-muted">-</p>
                       </>
                     )}
-                    <p className="text-xs text-foreground-muted mt-1">Líder actual</p>
+                    <p className="text-xs text-foreground-muted mt-1">
+                      Líder actual
+                    </p>
                   </div>
-                  
+
                   {/* Rey del rebuy */}
-                  <div className="bg-background-card/80 backdrop-blur rounded-xl p-4 sm:p-6 text-center border border-border animate-fade-in" style={{ animationDelay: '0.2s' }}>
+                  <div
+                    className="bg-background-card/80 backdrop-blur rounded-xl p-4 sm:p-6 text-center border border-border animate-fade-in"
+                    style={{ animationDelay: "0.2s" }}
+                  >
                     {homeStats.rebuyKing ? (
                       <>
                         <div className="relative w-12 h-12 sm:w-14 sm:h-14 mx-auto mb-2 sm:mb-3">
@@ -365,17 +464,27 @@ function HomeContent() {
                           ) : (
                             <div
                               className="w-full h-full rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-xl border-2 border-warning"
-                              style={{ backgroundColor: homeStats.rebuyKing.player.avatar_color }}
+                              style={{
+                                backgroundColor:
+                                  homeStats.rebuyKing.player.avatar_color,
+                              }}
                             >
-                              {homeStats.rebuyKing.player.name.charAt(0).toUpperCase()}
+                              {homeStats.rebuyKing.player.name
+                                .charAt(0)
+                                .toUpperCase()}
                             </div>
                           )}
                           <div className="absolute -top-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-background-card border border-warning rounded-full flex items-center justify-center text-xs">
                             👑
                           </div>
                         </div>
-                        <p className="text-sm sm:text-base font-bold text-foreground truncate">{homeStats.rebuyKing.player.name}</p>
-                        <p className="text-xs sm:text-sm text-warning font-medium">{homeStats.rebuyKing.avgRebuys.toFixed(1)} rebuys/partida</p>
+                        <p className="text-sm sm:text-base font-bold text-foreground truncate">
+                          {homeStats.rebuyKing.player.name}
+                        </p>
+                        <p className="text-xs sm:text-sm text-warning font-medium">
+                          {homeStats.rebuyKing.avgRebuys.toFixed(1)}{" "}
+                          rebuys/partida
+                        </p>
                       </>
                     ) : (
                       <>
@@ -385,7 +494,9 @@ function HomeContent() {
                         <p className="text-sm text-foreground-muted">-</p>
                       </>
                     )}
-                    <p className="text-xs text-foreground-muted mt-1">Rey del Rebuy</p>
+                    <p className="text-xs text-foreground-muted mt-1">
+                      Rey del Rebuy
+                    </p>
                   </div>
                 </div>
               )}
@@ -405,15 +516,15 @@ function HomeContent() {
                 <h2 className="text-xl sm:text-2xl font-bold text-foreground">
                   Historial de Partidas
                 </h2>
-                
+
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Modo acumulado: seleccionar partidas y ver el total */}
                   <button
                     onClick={toggleSelectionMode}
                     className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors ${
                       selectionMode
-                        ? 'bg-accent/20 border-accent text-accent'
-                        : 'bg-background-card border-border text-foreground-muted hover:border-accent/50'
+                        ? "bg-accent/20 border-accent text-accent"
+                        : "bg-background-card border-border text-foreground-muted hover:border-accent/50"
                     }`}
                     title="Selecciona varias partidas para ver su resultado acumulado"
                   >
@@ -429,18 +540,20 @@ function HomeContent() {
                         setShowPlayerDropdown(!showPlayerDropdown);
                       }}
                       className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors ${
-                        playerFilter 
-                          ? 'bg-primary/20 border-primary text-primary' 
-                          : 'bg-background-card border-border text-foreground-muted hover:border-primary/50'
+                        playerFilter
+                          ? "bg-primary/20 border-primary text-primary"
+                          : "bg-background-card border-border text-foreground-muted hover:border-primary/50"
                       }`}
                     >
                       <Users className="w-4 h-4" />
                       <span className="text-sm font-medium">
-                        {playerFilter || 'Jugador'}
+                        {playerFilter || "Jugador"}
                       </span>
-                      <ChevronDown className={`w-4 h-4 transition-transform ${showPlayerDropdown ? 'rotate-180' : ''}`} />
+                      <ChevronDown
+                        className={`w-4 h-4 transition-transform ${showPlayerDropdown ? "rotate-180" : ""}`}
+                      />
                     </button>
-                    
+
                     {/* Botón para quitar filtro - fuera del dropdown */}
                     {playerFilter && (
                       <button
@@ -455,15 +568,15 @@ function HomeContent() {
                     {/* Dropdown de jugadores */}
                     {showPlayerDropdown && (
                       <>
-                        <div 
-                          className="fixed inset-0 z-40" 
+                        <div
+                          className="fixed inset-0 z-40"
                           onClick={(e) => {
                             e.stopPropagation();
                             setShowPlayerDropdown(false);
                           }}
                         />
                         <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 bg-background-card border border-border rounded-xl shadow-lg z-50 w-48 max-h-64 overflow-y-auto animate-fade-in">
-                          {players.map(player => (
+                          {players.map((player) => (
                             <button
                               key={player.id}
                               onClick={(e) => {
@@ -471,7 +584,9 @@ function HomeContent() {
                                 selectPlayer(player.name);
                               }}
                               className={`w-full px-4 py-2.5 text-left hover:bg-background flex items-center gap-2 transition-colors text-sm ${
-                                playerFilter === player.name ? 'bg-primary/10 text-primary' : 'text-foreground'
+                                playerFilter === player.name
+                                  ? "bg-primary/10 text-primary"
+                                  : "text-foreground"
                               }`}
                             >
                               {player.avatar_url ? (
@@ -483,7 +598,11 @@ function HomeContent() {
                               ) : (
                                 <div
                                   className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                                  style={{ backgroundColor: getAvatarColor(player.avatar_color) }}
+                                  style={{
+                                    backgroundColor: getAvatarColor(
+                                      player.avatar_color,
+                                    ),
+                                  }}
                                 >
                                   {player.name.charAt(0).toUpperCase()}
                                 </div>
@@ -508,7 +627,7 @@ function HomeContent() {
                     />
                     {searchQuery && (
                       <button
-                        onClick={() => setSearchQuery('')}
+                        onClick={() => setSearchQuery("")}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted hover:text-foreground"
                       >
                         <X className="w-4 h-4" />
@@ -518,31 +637,73 @@ function HomeContent() {
                 </div>
               </div>
 
+              {/* Filtro por entrada (formato de la partida) */}
+              {availableEntries.length > 1 && (
+                <div className="mb-4 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto">
+                  <div className="flex items-center gap-1 bg-background-card border border-border rounded-xl p-1 w-fit">
+                    <button
+                      onClick={() => setEntryFilter(null)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                        entryFilter === null
+                          ? "bg-primary text-white"
+                          : "text-foreground-muted hover:text-foreground"
+                      }`}
+                    >
+                      Todas
+                    </button>
+                    {availableEntries.map((entry) => (
+                      <button
+                        key={entry}
+                        onClick={() =>
+                          setEntryFilter(entryFilter === entry ? null : entry)
+                        }
+                        className={`px-3 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${
+                          entryFilter === entry
+                            ? "bg-accent text-black"
+                            : "text-accent/80 hover:text-accent"
+                        }`}
+                      >
+                        {Number(entry.toFixed(2))}€
+                        <span className="font-normal text-xs opacity-70">
+                          {" "}
+                          ({games.filter((g) => g.entry_eur === entry).length})
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Info de filtros activos - solo mostrar búsqueda de texto */}
               {searchQuery && (
                 <div className="flex items-center gap-2 mb-4 flex-wrap">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-foreground-muted/20 text-foreground-muted rounded-full text-sm">
                     "{searchQuery}"
                     <button
-                      onClick={() => setSearchQuery('')}
+                      onClick={() => setSearchQuery("")}
                       className="ml-1 hover:text-foreground"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </span>
                   <span className="text-sm text-foreground-muted">
-                    {filteredGames.length} {filteredGames.length === 1 ? 'resultado' : 'resultados'}
+                    {filteredGames.length}{" "}
+                    {filteredGames.length === 1 ? "resultado" : "resultados"}
                   </span>
                 </div>
               )}
-              
+
               {filteredGames.length === 0 ? (
                 <div className="text-center py-12">
                   <Search className="w-12 h-12 text-foreground-muted/50 mx-auto mb-4" />
-                  <p className="text-foreground-muted">No se encontraron partidas</p>
+                  <p className="text-foreground-muted">
+                    No se encontraron partidas
+                  </p>
                 </div>
               ) : (
-                <div className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${selectionMode ? 'pb-24' : ''}`}>
+                <div
+                  className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${selectionMode ? "pb-24" : ""}`}
+                >
                   {filteredGames.map((game, index) => (
                     <GameCard
                       key={game.id}
@@ -566,17 +727,25 @@ function HomeContent() {
             <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">
-                  {selectedIds.size} partida{selectedIds.size !== 1 ? 's' : ''} seleccionada{selectedIds.size !== 1 ? 's' : ''}
+                  {selectedIds.size} partida{selectedIds.size !== 1 ? "s" : ""}{" "}
+                  seleccionada{selectedIds.size !== 1 ? "s" : ""}
                 </p>
                 <button
                   onClick={() => {
-                    const allSelected = filteredGames.length > 0 && filteredGames.every(g => selectedIds.has(g.id));
-                    setSelectedIds(allSelected ? new Set() : new Set(filteredGames.map(g => g.id)));
+                    const allSelected =
+                      filteredGames.length > 0 &&
+                      filteredGames.every((g) => selectedIds.has(g.id));
+                    setSelectedIds(
+                      allSelected
+                        ? new Set()
+                        : new Set(filteredGames.map((g) => g.id)),
+                    );
                   }}
                   className="text-xs text-primary hover:underline"
                 >
-                  {filteredGames.length > 0 && filteredGames.every(g => selectedIds.has(g.id))
-                    ? 'Quitar todas'
+                  {filteredGames.length > 0 &&
+                  filteredGames.every((g) => selectedIds.has(g.id))
+                    ? "Quitar todas"
                     : `Seleccionar las ${filteredGames.length} visibles`}
                 </button>
               </div>
@@ -613,9 +782,7 @@ function HomeContent() {
       {/* Footer */}
       <footer className="border-t border-border py-6">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center">
-          <p className="text-sm text-foreground-muted">
-            Crispy maricón
-          </p>
+          <p className="text-sm text-foreground-muted">Crispy maricón</p>
         </div>
       </footer>
 
