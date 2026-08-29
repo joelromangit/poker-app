@@ -42,6 +42,8 @@ interface AllInSectionProps {
   subtitle?: string;
   // Valor de la ficha en € para convertir el bote (fichas -> €)
   chipValue?: number;
+  // Al incrementarse, abre el formulario de registro (para botones externos)
+  openSignal?: number;
 }
 
 const STREETS: Street[] = ["preflop", "flop", "turn", "river"];
@@ -107,8 +109,14 @@ export default function AllInSection({
   onDelete,
   subtitle,
   chipValue,
+  openSignal,
 }: AllInSectionProps) {
   const [showForm, setShowForm] = useState(false);
+
+  // Apertura desde fuera (botón flotante, avisos...)
+  useEffect(() => {
+    if (openSignal && openSignal > 0) setShowForm(true);
+  }, [openSignal]);
 
   const playerById = useMemo(
     () => new Map(players.map((p) => [p.id, p])),
