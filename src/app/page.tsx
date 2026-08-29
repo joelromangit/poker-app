@@ -150,14 +150,18 @@ function HomeContent() {
     return `Hace ${diffDays} días`;
   }
 
-  // Entradas disponibles según los datos (para los chips de formato)
-  const availableEntries = Array.from(
-    new Set(
-      games
-        .map((g) => g.entry_eur)
-        .filter((e): e is number => e != null && e > 0),
-    ),
-  ).sort((a, b) => a - b);
+  // Entradas disponibles: solo formatos con al menos 2 partidas (las
+  // rarezas de una sola noche no merecen chip propio)
+  const entryCounts = new Map<number, number>();
+  for (const g of games) {
+    if (g.entry_eur != null && g.entry_eur > 0) {
+      entryCounts.set(g.entry_eur, (entryCounts.get(g.entry_eur) ?? 0) + 1);
+    }
+  }
+  const availableEntries = Array.from(entryCounts.entries())
+    .filter(([, count]) => count >= 2)
+    .map(([entry]) => entry)
+    .sort((a, b) => a - b);
 
   // Filtrar partidas por entrada, búsqueda y/o jugador
   const filteredGames = games.filter((game) => {

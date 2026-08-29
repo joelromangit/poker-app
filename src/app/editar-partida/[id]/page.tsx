@@ -478,8 +478,8 @@ export default function EditarPartidaPage() {
               </div>
 
               <div>
-                <label className="block text-sm text-foreground-muted mb-2">
-                  Ciega pequeña (fichas)
+                <label className="block text-sm text-foreground-muted mb-2 whitespace-nowrap">
+                  SB (fichas)
                 </label>
                 <NumberInput
                   value={smallBlind}
@@ -491,8 +491,8 @@ export default function EditarPartidaPage() {
               </div>
 
               <div>
-                <label className="block text-sm text-foreground-muted mb-2">
-                  Ciega grande (fichas)
+                <label className="block text-sm text-foreground-muted mb-2 whitespace-nowrap">
+                  BB (fichas)
                 </label>
                 <NumberInput
                   value={bigBlind}

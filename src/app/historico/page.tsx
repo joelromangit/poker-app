@@ -241,17 +241,26 @@ function HistoricoContent() {
     return Array.from(years).sort((a, b) => b - a);
   }, [histories]);
 
-  // Entradas disponibles según los datos (chips del filtro de formato)
+  // Entradas disponibles: solo formatos con al menos 2 partidas distintas
+  // (las rarezas de una sola noche no merecen chip propio)
   const availableEntries = useMemo(() => {
-    const entries = new Set<number>();
+    const gamesByEntry = new Map<number, Set<string>>();
     for (const history of histories) {
       for (const entry of history.entries) {
         if (entry.game.entryEur && entry.game.entryEur > 0) {
-          entries.add(entry.game.entryEur);
+          let ids = gamesByEntry.get(entry.game.entryEur);
+          if (!ids) {
+            ids = new Set();
+            gamesByEntry.set(entry.game.entryEur, ids);
+          }
+          ids.add(entry.game.id);
         }
       }
     }
-    return Array.from(entries).sort((a, b) => a - b);
+    return Array.from(gamesByEntry.entries())
+      .filter(([, ids]) => ids.size >= 2)
+      .map(([entry]) => entry)
+      .sort((a, b) => a - b);
   }, [histories]);
 
   // Aplicar el filtro de entrada a un conjunto de entradas del histórico
