@@ -44,7 +44,7 @@ import {
 type GameMode = 'cash' | 'tournament';
 
 // Cash game format types
-type CashGameFormat = 'entry5' | 'entry10' | 'custom';
+type CashGameFormat = 'entry5' | 'entry10' | 'entry20' | 'custom';
 
 // Predefined cash game formats (100BB with easy-to-manage chip values)
 const CASH_GAME_FORMATS = {
@@ -54,6 +54,8 @@ const CASH_GAME_FORMATS = {
     chipValue: 0.005, // 5€ / 1000 chips
     buyIn: 1000,
     totalEntry: 5,
+    smallBlind: 5,
+    bigBlind: 10,
   },
   entry10: {
     name: '10€ Entry',
@@ -61,6 +63,17 @@ const CASH_GAME_FORMATS = {
     chipValue: 0.01, // 10€ / 1000 chips
     buyIn: 1000,
     totalEntry: 10,
+    smallBlind: 5,
+    bigBlind: 10,
+  },
+  entry20: {
+    name: '20€ Entry',
+    description: '100BB - SB 10, BB 20',
+    chipValue: 0.01, // 20€ / 2000 chips
+    buyIn: 2000,
+    totalEntry: 20,
+    smallBlind: 10,
+    bigBlind: 20,
   },
   custom: {
     name: 'Personalizado',
@@ -68,6 +81,8 @@ const CASH_GAME_FORMATS = {
     chipValue: 0.01,
     buyIn: 1000,
     totalEntry: 10,
+    smallBlind: 5,
+    bigBlind: 10,
   },
 };
 
@@ -170,6 +185,19 @@ export default function NuevaPartidaPage() {
 
   // Reparto inteligente: valores auto-ajustados por jugador (antes/después)
   const [autoAdjusted, setAutoAdjusted] = useState<Map<string, { before: string; after: string }>>(new Map());
+
+  // Anti-olvido de all-ins: señal para abrir el formulario desde fuera,
+  // aviso tras un rebuy y confirmación al guardar sin ninguno registrado
+  const [allInOpenSignal, setAllInOpenSignal] = useState(0);
+  const [rebuyNudge, setRebuyNudge] = useState<string | null>(null);
+  const [showNoAllInsConfirm, setShowNoAllInsConfirm] = useState(false);
+
+  // El aviso del rebuy se esconde solo pasados unos segundos
+  useEffect(() => {
+    if (!rebuyNudge) return;
+    const timer = setTimeout(() => setRebuyNudge(null), 10000);
+    return () => clearTimeout(timer);
+  }, [rebuyNudge]);
 
   // Cargar jugadores y borrador
   useEffect(() => {
@@ -298,8 +326,8 @@ export default function NuevaPartidaPage() {
       const formatConfig = CASH_GAME_FORMATS[format];
       setChipValue(formatConfig.chipValue.toString());
       setBuyIn(formatConfig.buyIn.toString());
-      setSmallBlind('5');
-      setBigBlind('10');
+      setSmallBlind(formatConfig.smallBlind.toString());
+      setBigBlind(formatConfig.bigBlind.toString());
     }
   };
 
@@ -508,10 +536,10 @@ export default function NuevaPartidaPage() {
   const allPlayersHaveData = selectedPlayers.length >= 2 && 
     selectedPlayers.every(p => p.final_chips !== '' && parseFloat(p.final_chips) >= 0);
 
-  // Guardar partida
+  // Validar y guardar; si no hay all-ins registrados, preguntar primero
   const handleSubmit = async () => {
     setError('');
-    
+
     if (selectedPlayers.length < 2) {
       setError('Necesitas al menos 2 jugadores');
       return;
@@ -527,6 +555,16 @@ export default function NuevaPartidaPage() {
       return;
     }
 
+    if (allIns.length === 0) {
+      setShowNoAllInsConfirm(true);
+      return;
+    }
+
+    await submitGame();
+  };
+
+  // Guardar partida (tras pasar validaciones y el aviso de all-ins)
+  const submitGame = async () => {
     setSaving(true);
 
     try {
@@ -698,7 +736,7 @@ export default function NuevaPartidaPage() {
             {gameMode === 'cash' && (
               <>
                 <h3 className="text-sm font-medium text-foreground mb-3">Formato de entrada</h3>
-                <div className="flex gap-2 mb-4">
+                <div className="grid grid-cols-2 gap-2 mb-4">
                   {/* 5€ Entry */}
                   <button
                     type="button"
@@ -729,6 +767,22 @@ export default function NuevaPartidaPage() {
                       10€
                     </span>
                     <p className="text-xs text-foreground-muted mt-0.5">100BB</p>
+                  </button>
+
+                  {/* 20€ Entry */}
+                  <button
+                    type="button"
+                    onClick={() => handleFormatChange('entry20')}
+                    className={`flex-1 p-3 rounded-xl border-2 transition-all text-center ${
+                      cashGameFormat === 'entry20'
+                        ? 'border-accent bg-accent/10'
+                        : 'border-border hover:border-accent/50'
+                    }`}
+                  >
+                    <span className={`font-bold text-lg ${cashGameFormat === 'entry20' ? 'text-accent' : 'text-foreground'}`}>
+                      20€
+                    </span>
+                    <p className="text-xs text-foreground-muted mt-0.5">100BB · 10/20</p>
                   </button>
 
                   {/* Custom */}
@@ -1226,6 +1280,7 @@ export default function NuevaPartidaPage() {
                 }))}
                 entries={allIns}
                 chipValue={parseFloat(chipValue) || 0}
+                openSignal={allInOpenSignal}
                 onAdd={entry => setAllIns(prev => [...prev, entry])}
                 onDelete={(entry, index) => {
                   if (entry.photoUrl) deleteAllInPhoto(entry.photoUrl);
@@ -1233,6 +1288,69 @@ export default function NuevaPartidaPage() {
                 }}
                 subtitle="Se guardan en el borrador y con la partida"
               />
+            </div>
+          )}
+
+          {/* Botón flotante de all-in: siempre a un toque durante la partida */}
+          {selectedPlayers.length >= 2 && (
+            <div className="fixed bottom-5 right-4 z-40 flex flex-col items-end gap-2">
+              {/* Aviso tras un rebuy: probablemente hubo all-in */}
+              {rebuyNudge && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRebuyNudge(null);
+                    setAllInOpenSignal(s => s + 1);
+                  }}
+                  className="max-w-[240px] text-left text-xs px-3 py-2.5 rounded-xl bg-accent text-black font-medium shadow-lg animate-fade-in"
+                >
+                  🚀 ¿Rebuy de {rebuyNudge} por un all-in? Tócame para
+                  registrarlo
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setAllInOpenSignal(s => s + 1)}
+                className="px-4 py-3 rounded-full bg-danger text-white font-bold shadow-lg shadow-danger/30 flex items-center gap-2 active:scale-95 transition-transform"
+              >
+                🚀 All-in
+              </button>
+            </div>
+          )}
+
+          {/* Confirmación al guardar sin all-ins registrados */}
+          {showNoAllInsConfirm && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+              <div className="bg-background-card rounded-2xl p-6 max-w-sm w-full border border-border">
+                <h3 className="text-xl font-bold text-foreground mb-2">
+                  ¿Ningún all-in esta noche? 🤔
+                </h3>
+                <p className="text-foreground-muted mb-6 text-sm">
+                  Vas a guardar la partida sin ningún all-in registrado. Si
+                  hubo alguno, este es el último momento para apuntarlo (las
+                  estadísticas y los récords lo agradecen).
+                </p>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => {
+                      setShowNoAllInsConfirm(false);
+                      setAllInOpenSignal(s => s + 1);
+                    }}
+                    className="btn-primary w-full py-3 rounded-xl font-bold"
+                  >
+                    🚀 Registrar un all-in
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowNoAllInsConfirm(false);
+                      submitGame();
+                    }}
+                    className="w-full py-3 rounded-xl bg-background border border-border text-foreground font-medium hover:bg-background-secondary transition-colors"
+                  >
+                    No hubo ninguno, guardar
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
