@@ -99,9 +99,16 @@ export default function GameCard({
               <span>{formattedTime}</span>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 bg-background-secondary px-2.5 py-1 rounded-full ml-2 flex-shrink-0">
-            <Users className="w-3.5 h-3.5 text-primary" />
-            <span className="text-sm font-medium">{game.player_count}</span>
+          <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+            {game.entry_eur != null && game.entry_eur > 0 && (
+              <span className="text-xs font-bold text-accent bg-accent/15 px-2 py-1 rounded-full">
+                {Number(game.entry_eur.toFixed(2))}€
+              </span>
+            )}
+            <div className="flex items-center gap-1.5 bg-background-secondary px-2.5 py-1 rounded-full">
+              <Users className="w-3.5 h-3.5 text-primary" />
+              <span className="text-sm font-medium">{game.player_count}</span>
+            </div>
           </div>
         </div>
 

@@ -487,8 +487,8 @@ export default function PartidaPage() {
               </div>
               <div className="bg-background rounded-xl p-4 text-center">
                 <Coins className="w-5 h-5 text-warning mx-auto mb-1" />
-                <p className="text-xl font-bold text-foreground">{game.chip_value}€</p>
-                <p className="text-xs text-foreground-muted">Valor ficha</p>
+                <p className="text-xl font-bold text-foreground">{Number((game.buy_in * game.chip_value).toFixed(2))}€</p>
+                <p className="text-xs text-foreground-muted">Entrada</p>
               </div>
               <div className="bg-background rounded-xl p-4 text-center">
                 <RefreshCw className="w-5 h-5 text-primary mx-auto mb-1" />
@@ -803,6 +803,11 @@ export default function PartidaPage() {
           <div className="mt-6 p-4 bg-background-secondary rounded-xl text-center">
             <p className="text-sm text-foreground-muted">
               Buy-in base: <span className="font-medium text-foreground">{game.buy_in} fichas</span> × <span className="font-medium text-foreground">{game.chip_value}€</span> = <span className="font-medium text-accent">{(game.buy_in * game.chip_value).toFixed(2)}€</span> por buy-in
+            </p>
+            <p className="text-xs text-foreground-muted mt-1">
+              Ciegas: <span className="font-medium text-foreground">{game.small_blind ?? 5}/{game.big_blind ?? 10} fichas</span>{' '}
+              ({((game.small_blind ?? 5) * game.chip_value).toFixed(2)}€/{((game.big_blind ?? 10) * game.chip_value).toFixed(2)}€)
+              {' '}· <span className="font-medium text-primary">{Math.round(game.buy_in / (game.big_blind || 10))} BB efectivas</span>
             </p>
           </div>
         </div>
