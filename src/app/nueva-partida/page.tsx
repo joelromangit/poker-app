@@ -967,95 +967,100 @@ export default function NuevaPartidaPage() {
                 <ChevronDown className={`w-5 h-5 text-foreground-muted transition-transform ${showPlayerDropdown ? 'rotate-180' : ''}`} />
               </button>
 
+              {/* Modal centrado (bottom sheet en móvil): el dropdown anclado
+                  descuadraba la página al abrirse en pantallas pequeñas */}
               {showPlayerDropdown && (
-                <>
-                  {/* Overlay para cerrar al hacer clic fuera */}
-                  <div 
-                    className="fixed inset-0 z-[5]" 
-                    onClick={() => setShowPlayerDropdown(false)}
-                  />
-                  
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-background-card border border-border rounded-xl shadow-lg z-10 max-h-72 overflow-y-auto">
-                    {/* Header del dropdown */}
-                    <div className="sticky top-0 bg-background-card border-b border-border p-3 flex items-center justify-between">
+                <div
+                  className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
+                  onClick={() => setShowPlayerDropdown(false)}
+                >
+                  <div
+                    className="w-full sm:max-w-md bg-background-card border border-border rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[75vh] flex flex-col overflow-hidden"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Header del modal */}
+                    <div className="flex-shrink-0 bg-background-card border-b border-border p-4 flex items-center justify-between">
                       <span className="text-sm text-foreground-muted">
+                        <Users className="w-4 h-4 inline mr-1.5 -mt-0.5" />
                         {selectedPlayers.length} seleccionados
                       </span>
                       <button
                         type="button"
                         onClick={() => setShowPlayerDropdown(false)}
-                        className="text-xs text-primary font-medium hover:underline"
+                        className="px-4 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
                       >
                         Listo
                       </button>
                     </div>
 
-                    {availablePlayers.length === 0 ? (
-                      <div className="p-4 text-center text-foreground-muted">
-                        No hay jugadores registrados
-                      </div>
-                    ) : (
-                      availablePlayers.map(player => {
-                        const isSelected = selectedPlayers.some(sp => sp.player_id === player.id);
-                        return (
-                          <button
-                            key={player.id}
-                            type="button"
-                            onClick={() => togglePlayerInGame(player)}
-                            className={`w-full px-4 py-3 text-left flex items-center gap-3 transition-colors ${
-                              isSelected 
-                                ? 'bg-primary/10 hover:bg-primary/20' 
-                                : 'hover:bg-background'
-                            }`}
-                          >
-                            {/* Checkbox visual */}
-                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                              isSelected 
-                                ? 'bg-primary border-primary' 
-                                : 'border-border'
-                            }`}>
-                              {isSelected && <Check className="w-3 h-3 text-white" />}
-                            </div>
-
-                            {player.avatar_url ? (
-                              <img
-                                src={player.avatar_url}
-                                alt={player.name}
-                                className="w-8 h-8 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div
-                                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                                style={{ backgroundColor: getAvatarColor(player.avatar_color) }}
-                              >
-                                {player.name.charAt(0).toUpperCase()}
+                    <div className="flex-1 overflow-y-auto overscroll-contain pb-[max(env(safe-area-inset-bottom),0.5rem)]">
+                      {availablePlayers.length === 0 ? (
+                        <div className="p-4 text-center text-foreground-muted">
+                          No hay jugadores registrados
+                        </div>
+                      ) : (
+                        availablePlayers.map(player => {
+                          const isSelected = selectedPlayers.some(sp => sp.player_id === player.id);
+                          return (
+                            <button
+                              key={player.id}
+                              type="button"
+                              onClick={() => togglePlayerInGame(player)}
+                              className={`w-full px-4 py-3 text-left flex items-center gap-3 transition-colors ${
+                                isSelected
+                                  ? 'bg-primary/10 hover:bg-primary/20'
+                                  : 'hover:bg-background'
+                              }`}
+                            >
+                              {/* Checkbox visual */}
+                              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                                isSelected
+                                  ? 'bg-primary border-primary'
+                                  : 'border-border'
+                              }`}>
+                                {isSelected && <Check className="w-3 h-3 text-white" />}
                               </div>
-                            )}
-                            <span className={`flex-1 ${isSelected ? 'text-foreground font-medium' : 'text-foreground'}`}>
-                              {player.name}
-                            </span>
-                          </button>
-                        );
-                      })
-                    )}
-                    
-                    {/* Crear nuevo jugador */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPlayerDropdown(false);
-                        setShowNewPlayerModal(true);
-                      }}
-                      className="w-full px-4 py-3 text-left hover:bg-background flex items-center gap-3 transition-colors border-t border-border text-primary"
-                    >
-                      <div className="w-5 h-5" /> {/* Spacer para alineación */}
-                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                        <UserPlus className="w-4 h-4" />
-                      </div>
-                      <span className="font-medium">Crear nuevo jugador</span>
-                    </button>
+
+                              {player.avatar_url ? (
+                                <img
+                                  src={player.avatar_url}
+                                  alt={player.name}
+                                  className="w-8 h-8 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div
+                                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                                  style={{ backgroundColor: getAvatarColor(player.avatar_color) }}
+                                >
+                                  {player.name.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <span className={`flex-1 ${isSelected ? 'text-foreground font-medium' : 'text-foreground'}`}>
+                                {player.name}
+                              </span>
+                            </button>
+                          );
+                        })
+                      )}
+
+                      {/* Crear nuevo jugador */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPlayerDropdown(false);
+                          setShowNewPlayerModal(true);
+                        }}
+                        className="w-full px-4 py-3 text-left hover:bg-background flex items-center gap-3 transition-colors border-t border-border text-primary"
+                      >
+                        <div className="w-5 h-5" /> {/* Spacer para alineación */}
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                          <UserPlus className="w-4 h-4" />
+                        </div>
+                        <span className="font-medium">Crear nuevo jugador</span>
+                      </button>
+                    </div>
                   </div>
-                </>
+                </div>
               )}
             </div>
 
