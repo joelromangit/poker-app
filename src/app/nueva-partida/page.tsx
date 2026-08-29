@@ -750,7 +750,7 @@ export default function NuevaPartidaPage() {
                     <span className={`font-bold text-lg ${cashGameFormat === 'entry5' ? 'text-accent' : 'text-foreground'}`}>
                       5€
                     </span>
-                    <p className="text-xs text-foreground-muted mt-0.5">100BB</p>
+                    <p className="text-xs text-foreground-muted mt-0.5">100BB · 5/10</p>
                   </button>
 
                   {/* 10€ Entry */}
@@ -766,7 +766,7 @@ export default function NuevaPartidaPage() {
                     <span className={`font-bold text-lg ${cashGameFormat === 'entry10' ? 'text-accent' : 'text-foreground'}`}>
                       10€
                     </span>
-                    <p className="text-xs text-foreground-muted mt-0.5">100BB</p>
+                    <p className="text-xs text-foreground-muted mt-0.5">100BB · 5/10</p>
                   </button>
 
                   {/* 20€ Entry */}
