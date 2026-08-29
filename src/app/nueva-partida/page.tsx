@@ -92,6 +92,8 @@ interface GameDraft {
   gameMode?: GameMode;
   cashGameFormat?: CashGameFormat;
   allIns?: AllInEntry[]; // All-ins registrados durante la partida en vivo
+  smallBlind?: string; // ciegas en fichas
+  bigBlind?: string;
 }
 
 // Función para guardar borrador
@@ -137,6 +139,9 @@ export default function NuevaPartidaPage() {
   const [gameName, setGameName] = useState('');
   const [chipValue, setChipValue] = useState('0.01');
   const [buyIn, setBuyIn] = useState('1000');
+  // Ciegas en fichas (la BB es la base de las estadísticas en BBs)
+  const [smallBlind, setSmallBlind] = useState('5');
+  const [bigBlind, setBigBlind] = useState('10');
   const [selectedPlayers, setSelectedPlayers] = useState<GameFormPlayer[]>([]);
   const [allIns, setAllIns] = useState<AllInEntry[]>([]);
   const [notes, setNotes] = useState('');
@@ -195,6 +200,8 @@ export default function NuevaPartidaPage() {
       setGameTime(draft.gameTime || currentTime);
       setGameMode(draft.gameMode || 'cash');
       setCashGameFormat(draft.cashGameFormat || 'custom');
+      setSmallBlind(draft.smallBlind || '5');
+      setBigBlind(draft.bigBlind || '10');
       
       // Restaurar jugadores (solo los que existen)
       const restoredPlayers: GameFormPlayer[] = [];
@@ -254,12 +261,14 @@ export default function NuevaPartidaPage() {
         gameMode,
         cashGameFormat,
         allIns,
+        smallBlind,
+        bigBlind,
       });
     } else {
       // Si no hay datos, limpiar el borrador
       clearDraft();
     }
-  }, [gameName, chipValue, buyIn, selectedPlayers, allIns, notes, gameDate, gameTime, gameMode, cashGameFormat, draftLoaded]);
+  }, [gameName, chipValue, buyIn, smallBlind, bigBlind, selectedPlayers, allIns, notes, gameDate, gameTime, gameMode, cashGameFormat, draftLoaded]);
 
   // Descartar borrador
   const handleDiscardDraft = () => {
@@ -270,6 +279,8 @@ export default function NuevaPartidaPage() {
     const defaultFormat = CASH_GAME_FORMATS.entry10;
     setChipValue(defaultFormat.chipValue.toString());
     setBuyIn(defaultFormat.buyIn.toString());
+    setSmallBlind('5');
+    setBigBlind('10');
     setSelectedPlayers([]);
     setAllIns([]);
     setNotes('');
@@ -287,8 +298,17 @@ export default function NuevaPartidaPage() {
       const formatConfig = CASH_GAME_FORMATS[format];
       setChipValue(formatConfig.chipValue.toString());
       setBuyIn(formatConfig.buyIn.toString());
+      setSmallBlind('5');
+      setBigBlind('10');
     }
   };
+
+  // BBs efectivas de la entrada (fichas de entrada / ciega grande)
+  const effectiveBB = (() => {
+    const bb = parseFloat(bigBlind) || 0;
+    const chips = parseFloat(buyIn) || 0;
+    return bb > 0 ? chips / bb : 0;
+  })();
 
   // Calculate total entry for custom mode
   const calculateCustomEntry = (): number => {
@@ -526,7 +546,9 @@ export default function NuevaPartidaPage() {
         playersData,
         notes.trim() || undefined,
         gameDatetime,
-        gameName.trim() || undefined
+        gameName.trim() || undefined,
+        parseFloat(smallBlind) || 5,
+        parseFloat(bigBlind) || 10
       );
 
       if (game) {
@@ -742,7 +764,10 @@ export default function NuevaPartidaPage() {
                       <span className="font-medium text-foreground">{CASH_GAME_FORMATS[cashGameFormat].chipValue}€</span>
                     </div>
                     <div className="text-xs text-foreground-muted pt-2 border-t border-border">
-                      Small Blind: 5 fichas | Big Blind: 10 fichas
+                      SB {smallBlind || 5} · BB {bigBlind || 10} fichas
+                      {effectiveBB > 0 && (
+                        <span className="text-primary font-medium"> → entrada de {effectiveBB.toFixed(0)} BB efectivas</span>
+                      )}
                     </div>
                     <div className="text-xs text-primary pt-2 mt-2 border-t border-border flex items-center gap-1.5">
                       <Users className="w-3.5 h-3.5 flex-shrink-0" />
@@ -781,11 +806,47 @@ export default function NuevaPartidaPage() {
                       </div>
                     </div>
 
+                    {/* Ciegas en fichas */}
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-sm text-foreground-muted mb-2">
+                          Ciega pequeña (fichas)
+                        </label>
+                        <NumberInput
+                          value={smallBlind}
+                          onChange={setSmallBlind}
+                          step={5}
+                          min={1}
+                          placeholder="5"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-foreground-muted mb-2">
+                          Ciega grande (fichas)
+                        </label>
+                        <NumberInput
+                          value={bigBlind}
+                          onChange={setBigBlind}
+                          step={5}
+                          min={1}
+                          placeholder="10"
+                        />
+                      </div>
+                    </div>
+
                     {/* Dynamic Total Calculation */}
                     <div className="pt-3 border-t border-border">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-foreground-muted">Entry total calculado:</span>
                         <span className="font-bold text-lg text-accent">{calculateCustomEntry().toFixed(2)}€</span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1 text-xs">
+                        <span className="text-foreground-muted">
+                          Ciegas: {((parseFloat(smallBlind) || 0) * (parseFloat(chipValue) || 0)).toFixed(2)}€ / {((parseFloat(bigBlind) || 0) * (parseFloat(chipValue) || 0)).toFixed(2)}€
+                        </span>
+                        <span className="text-primary font-medium">
+                          {effectiveBB > 0 ? `${effectiveBB.toFixed(0)} BB efectivas` : ''}
+                        </span>
                       </div>
                     </div>
                     <div className="text-xs text-primary pt-2 mt-2 border-t border-border flex items-center gap-1.5">

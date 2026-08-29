@@ -1,4 +1,5 @@
-// Fichas que vale la ciega grande (Small Blind: 5 fichas | Big Blind: 10)
+// Ciega grande por defecto en fichas: fallback para partidas anteriores a
+// las ciegas configurables (los presets clásicos jugaban SB 5 / BB 10)
 export const BIG_BLIND_CHIPS = 10;
 
 // Info mínima de una partida para el histórico
