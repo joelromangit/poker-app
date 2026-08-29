@@ -45,6 +45,9 @@ export default function EditarPartidaPage() {
   const [gameName, setGameName] = useState('');
   const [chipValue, setChipValue] = useState('0.01');
   const [buyIn, setBuyIn] = useState('1000');
+  // Ciegas en fichas
+  const [smallBlind, setSmallBlind] = useState('5');
+  const [bigBlind, setBigBlind] = useState('10');
   const [selectedPlayers, setSelectedPlayers] = useState<GameFormPlayer[]>([]);
   const [notes, setNotes] = useState('');
   const [gameDate, setGameDate] = useState('');
@@ -84,6 +87,8 @@ export default function EditarPartidaPage() {
       setGameName(gameData.name || '');
       setChipValue(gameData.chip_value.toString());
       setBuyIn(gameData.buy_in.toString());
+      setSmallBlind((gameData.small_blind ?? 5).toString());
+      setBigBlind((gameData.big_blind ?? 10).toString());
       setNotes(gameData.notes || '');
       
       // Cargar fecha y hora de la partida
@@ -320,7 +325,9 @@ export default function EditarPartidaPage() {
         playersData,
         notes.trim() || undefined,
         gameDatetime,
-        gameName.trim() || undefined
+        gameName.trim() || undefined,
+        parseFloat(smallBlind) || 5,
+        parseFloat(bigBlind) || 10
       );
 
       if (updatedGame) {
@@ -469,7 +476,44 @@ export default function EditarPartidaPage() {
                   icon={<Calculator className="w-4 h-4" />}
                 />
               </div>
+
+              <div>
+                <label className="block text-sm text-foreground-muted mb-2">
+                  Ciega pequeña (fichas)
+                </label>
+                <NumberInput
+                  value={smallBlind}
+                  onChange={setSmallBlind}
+                  step={5}
+                  min={1}
+                  placeholder="5"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-foreground-muted mb-2">
+                  Ciega grande (fichas)
+                </label>
+                <NumberInput
+                  value={bigBlind}
+                  onChange={setBigBlind}
+                  step={5}
+                  min={1}
+                  placeholder="10"
+                />
+              </div>
             </div>
+
+            {/* Resumen de ciegas y BBs efectivas */}
+            <p className="text-xs text-foreground-muted mt-3">
+              Ciegas: {((parseFloat(smallBlind) || 0) * (parseFloat(chipValue) || 0)).toFixed(2)}€ /{' '}
+              {((parseFloat(bigBlind) || 0) * (parseFloat(chipValue) || 0)).toFixed(2)}€
+              {(parseFloat(bigBlind) || 0) > 0 && (parseFloat(buyIn) || 0) > 0 && (
+                <span className="text-primary font-medium">
+                  {' '}· entrada de {((parseFloat(buyIn) || 0) / (parseFloat(bigBlind) || 1)).toFixed(0)} BB efectivas
+                </span>
+              )}
+            </p>
 
             {/* Info del bote */}
             {selectedPlayers.length > 0 && (

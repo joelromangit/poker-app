@@ -156,6 +156,7 @@ export type Database = {
       }
       games: {
         Row: {
+          big_blind: number
           buy_in: number
           chip_value: number
           created_at: string
@@ -164,10 +165,12 @@ export type Database = {
           name: string | null
           notes: string | null
           players: Json
+          small_blind: number
           status: string
           total_pot: number
         }
         Insert: {
+          big_blind?: number
           buy_in: number
           chip_value: number
           created_at?: string
@@ -176,10 +179,12 @@ export type Database = {
           name?: string | null
           notes?: string | null
           players?: Json
+          small_blind?: number
           status?: string
           total_pot?: number
         }
         Update: {
+          big_blind?: number
           buy_in?: number
           chip_value?: number
           created_at?: string
@@ -188,6 +193,7 @@ export type Database = {
           name?: string | null
           notes?: string | null
           players?: Json
+          small_blind?: number
           status?: string
           total_pot?: number
         }

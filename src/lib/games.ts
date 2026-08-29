@@ -110,7 +110,9 @@ export async function createGame(
   players: { player_id: string; initial_chips: number; final_chips: number; rebuys: number }[],
   notes?: string,
   gameDate?: Date,
-  name?: string
+  name?: string,
+  smallBlind = 5,
+  bigBlind = 10
 ): Promise<Game | null> {
   // Calcular el bote total incluyendo entrada personalizada y rebuys
   // totalPot = Σ (initial_chips + buy_in × rebuys) × chip_value
@@ -126,6 +128,8 @@ export async function createGame(
       name: name || null,
       chip_value: chipValue,
       buy_in: buyIn,
+      small_blind: smallBlind,
+      big_blind: bigBlind,
       total_pot: totalPot,
       notes: notes || null,
       status: 'completed',
@@ -179,7 +183,9 @@ export async function updateGame(
   players: { player_id: string; initial_chips: number; final_chips: number; rebuys: number }[],
   notes?: string,
   gameDate?: Date,
-  name?: string
+  name?: string,
+  smallBlind?: number,
+  bigBlind?: number
 ): Promise<Game | null> {
   // Calcular el bote total incluyendo entrada personalizada y rebuys
   const totalPot = players.reduce((sum, p) => {
@@ -192,6 +198,8 @@ export async function updateGame(
     name: name || null,
     chip_value: chipValue,
     buy_in: buyIn,
+    ...(smallBlind !== undefined ? { small_blind: smallBlind } : {}),
+    ...(bigBlind !== undefined ? { big_blind: bigBlind } : {}),
     total_pot: totalPot,
     notes: notes || null,
   };

@@ -9,7 +9,7 @@ export async function getPlayersHistory(): Promise<PlayerHistory[]> {
   const { data, error } = await db.from("game_players").select(`
       profit,
       rebuys,
-      game:games (id, name, created_at, chip_value),
+      game:games (id, name, created_at, chip_value, big_blind),
       player:players (id, name, avatar_color, avatar_url, is_active)
     `);
 
@@ -44,7 +44,7 @@ export async function getPlayersHistory(): Promise<PlayerHistory[]> {
         id: game.id,
         name: game.name,
         date: game.created_at,
-        bigBlind: (game.chip_value || 0) * BIG_BLIND_CHIPS,
+        bigBlind: (game.chip_value || 0) * (game.big_blind || BIG_BLIND_CHIPS),
       },
       profit: row.profit,
       rebuys: row.rebuys || 0,
