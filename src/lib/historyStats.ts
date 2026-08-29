@@ -8,6 +8,7 @@ export interface HistoryGameInfo {
   name: string | null;
   date: string; // ISO
   bigBlind: number; // valor de la ciega grande en € (10 fichas * valor ficha)
+  entryEur?: number; // entrada de la partida en € (para filtrar por formato)
 }
 
 // Info mínima de un jugador para el histórico

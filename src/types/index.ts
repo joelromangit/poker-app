@@ -24,6 +24,8 @@ export interface GameSummary {
   participants: string[]; // Lista de nombres de todos los participantes
   player_results: { name: string; profit: number }[]; // Resultado de cada participante
   entry_eur?: number; // Entrada de la partida en € (buy-in base × valor ficha)
+  small_blind?: number; // ciegas en fichas
+  big_blind?: number;
 }
 
 // Estadísticas de un jugador
