@@ -1,118 +1,138 @@
-# 🃏 Poker Nights
+# Poker Nights
 
-Una aplicación elegante para llevar el registro de tus partidas de poker con amigos. Calcula automáticamente las ganancias y pérdidas en euros basándose en el valor de las fichas.
+> Registro de partidas de poker caseras: introduces las fichas finales de cada jugador y la app cuadra el balance y convierte a euros automáticamente.
 
-![Next.js](https://img.shields.io/badge/Next.js-15-black)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38bdf8)
-![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ecf8e)
+[![Stack](https://img.shields.io/badge/Next.js-16-000?style=flat-square&logo=nextdotjs&logoColor=white)](https://nextjs.org)
+[![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react&logoColor=white)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Tailwind](https://img.shields.io/badge/Tailwind-4-38bdf8?style=flat-square&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com)
+[![Deploy](https://img.shields.io/badge/deploy-Vercel-000?style=flat-square&logo=vercel&logoColor=white)](https://vercel.com)
 
-## ✨ Características
+---
 
-- 📱 **Diseño responsive** - Funciona perfectamente en móvil y escritorio
-- 🎨 **Tema elegante** - Inspirado en las mesas de poker
-- 💰 **Cálculo automático** - Convierte fichas a euros automáticamente
-- ✅ **Validación de balance** - Verifica que las fichas cuadren
-- 📊 **Estadísticas** - Ve el historial completo de partidas
-- 🔗 **Compartir** - Comparte los resultados fácilmente
+## Qué es
 
-## 📋 Tabla de Contenidos
+Poker Nights es una app web mobile-first para llevar el histórico de partidas con amigos. Configuras el valor de la ficha y las fichas iniciales por jugador, anotas con cuántas fichas acaba cada uno y la app valida que el balance cuadre antes de guardar. El histórico se queda en Supabase y puedes consultarlo, compartirlo y ver rankings sin volver a abrir una hoja de cálculo.
 
-- [🚀 Configuración](#configuración)
-  - [Desarrollo local](#1-instalar-supabase-cli-para-desarrollo-local)
-  - [Producción](#️-configuración-con-supabase-cloud-producción)
-- [🌐 Desplegar en Vercel](#-desplegar-en-vercel)
-- [📝 Uso](#-uso)
-- [🛠️ Tecnologías](#️-tecnologías)
-- [❓ Preguntas Frecuentes](#-preguntas-frecuentes)
+## Flujo principal
 
-## 🚀 Configuración
+| Paso | Qué pasa |
+|---|---|
+| **Nueva partida** | Defines valor por ficha (ej. `0.05 €`) y fichas iniciales por jugador (ej. `100`) |
+| **Jugadores** | Añades a los participantes con sus fichas finales |
+| **Cálculo automático** | La app convierte fichas a euros y calcula ganancias/pérdidas de cada uno |
+| **Validación** | No se guarda hasta que el total de fichas finales cuadre con el reparto inicial |
+| **Histórico** | Todas las partidas quedan listadas con estadísticas globales y detalle por partida |
+| **Compartir** | Resultado de una partida compartible con un enlace |
 
-### 1. Instalar Supabase CLI (para desarrollo local)
+## Features destacadas
+
+- **Mobile-first** pensada para abrirla en el móvil al terminar la partida en menos de un minuto
+- **Validación de balance** que evita guardar partidas con fichas descuadradas
+- **Conversión ficha → euro** automática a partir del valor unitario
+- **Histórico completo** con estadísticas agregadas en la home
+- **Ranking de jugadores** con vistas mensuales y anuales
+- **Edición y recorte de imágenes** con `react-easy-crop` para avatares
+- **Gráficos** con `recharts` para visualizar evolución y comparativas
+- **Validación de formularios** con `zod` en cliente y servidor
+- **Tema oscuro tipo mesa de poker** con Tailwind CSS v4
+- **Compartir partida** mediante enlace directo a la vista de detalle
+
+## Stack
+
+- **Frontend:** Next.js 16 (App Router) + React 19 + TypeScript 5
+- **UI:** Tailwind CSS v4, `lucide-react` para iconografía, `recharts` para gráficos
+- **Backend:** Supabase (Postgres + Auth + Storage)
+- **Validación:** `zod`
+- **Tooling:** Biome (lint + format), Vitest (tests)
+- **Deploy:** Vercel
+
+## Estructura
+
+```
+src/
+├── app/           rutas Next.js (App Router)
+├── components/    componentes UI reutilizables
+├── lib/           cliente Supabase, helpers y database.types.ts
+└── types/         tipos compartidos del dominio
+supabase/
+├── config.toml    configuración del proyecto Supabase
+└── migrations/    migraciones SQL versionadas
+biome.json         configuración de lint y formato
+vitest.config.ts   configuración de tests
+```
+
+## Empezar en local
 
 ```bash
-# Usando npm
+git clone https://github.com/joelromangit/poker-app.git
+cd poker-app
+npm install
+npm run dev
+```
+
+### Opción A — Supabase local
+
+```bash
+# Instalar la CLI (una vez)
 npm install -g supabase
+# o:  brew install supabase/tap/supabase
 
-# O usando Homebrew (macOS)
-brew install supabase/tap/supabase
-```
-
-### 2. Iniciar Supabase local
-
-```
-# Iniciar todos los servicios de Supabase localmente
+# Levantar Postgres + Studio + Storage en local
 supabase start
-
-# Ver estado de los servicios
-supabase status
-
-# Detener los servicios cuando termines
-supabase stop
 ```
 
-**Ports disponibles:**
-- API: http://localhost:54321
-- DB: localhost:54322
-- Studio: http://localhost:54323
-- Storage: http://localhost:54323/storage
+Puertos por defecto:
 
-### 4. Configurar variables de entorno para desarrollo local
+| Servicio | URL |
+|---|---|
+| API | `http://localhost:54321` |
+| DB | `localhost:54322` |
+| Studio | `http://localhost:54323` |
 
-Crea un archivo `.env.local` en la raíz del proyecto:
+### Opción B — Supabase Cloud
+
+Crea un proyecto en [supabase.com](https://supabase.com) y aplica las migraciones de `supabase/migrations/`.
+
+### Variables de entorno
+
+Crea un `.env.local` en la raíz:
 
 ```env
-# Desarrollo local (valores por defecto de Supabase local)
-NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvayIsInJvbGUiOiJhbGciLCJpYXQiOjE2MDAwMDAwMDAsImV4cCI6MTc4MDAwMDAwMH0.placeholder
+NEXT_PUBLIC_SUPABASE_URL=<tu-url-supabase>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<tu-anon-key>
 ```
 
-### 5. Instalar y ejecutar la aplicación
+## Scripts
 
-```bash
-# Instalar dependencias
-npm install
+| Comando | Para qué |
+|---|---|
+| `npm run dev` | Servidor de desarrollo con HMR |
+| `npm run build` | Build de producción |
+| `npm start` | Servir el build |
+| `npm run lint` | Biome check sobre todo el proyecto |
+| `npm run lint:fix` | Lint y autofix con Biome |
+| `npm run format` | Formato con Biome |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm test` | Tests con Vitest |
+| `npm run test:ui` | UI interactiva de Vitest |
+| `npm run db:generate` | Regenera `database.types.ts` desde el esquema de Supabase |
 
-# Desarrollo
-npm run dev
+## Desplegar en Vercel
 
-# Producción
-npm run build
-npm start
-```
-
-## 🌐 Desplegar en Vercel
-
-1. Sube el repositorio a GitHub
+1. Sube el repo a GitHub
 2. Importa el proyecto en [Vercel](https://vercel.com)
-3. Añade las variables de entorno en la configuración del proyecto
-4. ¡Deploy automático!
+3. Configura `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` como variables de entorno
+4. Deploy automático en cada push a `master`
 
-## 📝 Uso
+## Convenciones
 
-### Nueva partida
+- Mobile-first; el escritorio es un extra
+- Español para UI, inglés para código
+- Tipos de Supabase generados, no escritos a mano
+- Sin emojis en código
 
-1. Pulsa "Nueva Partida"
-2. Configura el valor de cada ficha (ej: 0.05€)
-3. Indica las fichas iniciales por jugador (ej: 100)
-4. Añade los jugadores con sus fichas finales
-5. La app calcula automáticamente las ganancias/pérdidas
-6. Guarda cuando el balance cuadre
+## Autor
 
-### Ver historial
-
-- La página principal muestra todas las partidas
-- Estadísticas generales en la parte superior
-- Pulsa en una partida para ver los detalles
-
-## 🛠️ Tecnologías
-
-- **Next.js 15** - Framework React con App Router
-- **TypeScript** - Tipado estático
-- **Tailwind CSS v4** - Estilos utilitarios
-- **Supabase** - Base de datos PostgreSQL
-- **Lucide Icons** - Iconos SVG
-
-## 📄 Licencia
-
-MIT
+[**Joel Roman**](https://github.com/joelromangit)
