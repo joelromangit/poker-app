@@ -4,6 +4,7 @@ import {
   ArrowUpDown,
   Calendar,
   Check,
+  Coins,
   EyeOff,
   History,
   Loader2,
@@ -80,6 +81,13 @@ export default function JugadoresPage() {
     () => new Set<string>(),
   );
 
+  // Jugadores cuyo dinero se descuenta del ranking (modo "sin su dinero"):
+  // los profits del resto se recalculan como si no hubieran jugado.
+  // Solo dura la sesión, no se persiste, para no dejar el ranking "trucado"
+  const [discountedPlayerIds, setDiscountedPlayerIds] = useState<Set<string>>(
+    () => new Set<string>(),
+  );
+
   // Who's Gay modal
   const [showGayModal, setShowGayModal] = useState(false);
 
@@ -92,9 +100,11 @@ export default function JugadoresPage() {
     return { from: `${periodFilter}-01-01`, to: `${periodFilter}-12-31` };
   }, [periodFilter, dateFrom, dateTo]);
 
-  // Referencia al rango actual para que loadData lo respete sin re-crearse
+  // Referencias a los filtros actuales para que loadData los respete sin re-crearse
   const rangeRef = useRef(effectiveRange);
   rangeRef.current = effectiveRange;
+  const discountedRef = useRef(discountedPlayerIds);
+  discountedRef.current = discountedPlayerIds;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -103,7 +113,11 @@ export default function JugadoresPage() {
       const [playersData, statsData, visibility, hiddenIds, years] =
         await Promise.all([
           getPlayers(),
-          getAllPlayersStats(range.from, range.to),
+          getAllPlayersStats(
+            range.from,
+            range.to,
+            Array.from(discountedRef.current),
+          ),
           getPlayersColumnsVisibility(),
           getRankingHiddenPlayerIds(),
           getGameYears(),
@@ -128,7 +142,7 @@ export default function JugadoresPage() {
     loadData();
   }, [loadData]);
 
-  // Recargar solo las estadísticas al cambiar el filtro de periodo
+  // Recargar solo las estadísticas al cambiar el periodo o los descontados
   const isFirstRange = useRef(true);
   useEffect(() => {
     if (isFirstRange.current) {
@@ -141,6 +155,7 @@ export default function JugadoresPage() {
       const statsData = await getAllPlayersStats(
         effectiveRange.from,
         effectiveRange.to,
+        Array.from(discountedPlayerIds),
       );
       if (cancelled) return;
       const statsMap = new Map<string, PlayerStats>();
@@ -154,7 +169,7 @@ export default function JugadoresPage() {
     return () => {
       cancelled = true;
     };
-  }, [effectiveRange]);
+  }, [effectiveRange, discountedPlayerIds]);
 
   const handleToggleColumn = useCallback((key: PlayerColumnKey) => {
     setColumnsVisibility((prev) => {
@@ -170,6 +185,15 @@ export default function JugadoresPage() {
       if (next.has(playerId)) next.delete(playerId);
       else next.add(playerId);
       saveRankingHiddenPlayerIds(Array.from(next));
+      return next;
+    });
+  }, []);
+
+  const handleTogglePlayerDiscounted = useCallback((playerId: string) => {
+    setDiscountedPlayerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(playerId)) next.delete(playerId);
+      else next.add(playerId);
       return next;
     });
   }, []);
@@ -235,12 +259,15 @@ export default function JugadoresPage() {
     return !playerStats || playerStats.total_games === 0;
   });
 
-  // Excluir del ranking los marcados como ocultos
+  // Excluir del ranking los ocultos y los descontados
   const rankedPlayers = playersWithGames.filter(
-    (p) => !hiddenPlayerIds.has(p.id),
+    (p) => !hiddenPlayerIds.has(p.id) && !discountedPlayerIds.has(p.id),
   );
-  const hiddenPlayers = playersWithGames.filter((p) =>
-    hiddenPlayerIds.has(p.id),
+  const discountedPlayers = playersWithGames.filter((p) =>
+    discountedPlayerIds.has(p.id),
+  );
+  const hiddenPlayers = playersWithGames.filter(
+    (p) => hiddenPlayerIds.has(p.id) && !discountedPlayerIds.has(p.id),
   );
 
   // Ordenar jugadores con partidas según el criterio seleccionado
@@ -259,8 +286,11 @@ export default function JugadoresPage() {
     }
   });
 
-  // Ordenar jugadores ocultos alfabéticamente
+  // Ordenar jugadores ocultos y descontados alfabéticamente
   const sortedHiddenPlayers = [...hiddenPlayers].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+  const sortedDiscountedPlayers = [...discountedPlayers].sort((a, b) =>
     a.name.localeCompare(b.name),
   );
 
@@ -310,7 +340,34 @@ export default function JugadoresPage() {
               playersWithGames={playersWithGames}
               hiddenPlayerIds={hiddenPlayerIds}
               onTogglePlayerHidden={handleTogglePlayerHidden}
+              discountedPlayerIds={discountedPlayerIds}
+              onTogglePlayerDiscounted={handleTogglePlayerDiscounted}
             />
+          )}
+
+          {/* Aviso del modo "sin su dinero" */}
+          {discountedPlayerIds.size > 0 && (
+            <div className="mb-6 px-4 py-3 bg-warning/10 border border-warning/30 rounded-xl flex items-start gap-2.5">
+              <Coins className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-foreground flex-1 min-w-0">
+                Ranking sin el dinero de{" "}
+                <span className="font-semibold">
+                  {players
+                    .filter((p) => discountedPlayerIds.has(p.id))
+                    .map((p) => p.name)
+                    .join(", ")}
+                </span>
+                : sus ganancias y pérdidas se reparten proporcionalmente entre
+                el resto, como si no hubieran jugado.
+              </p>
+              <button
+                type="button"
+                onClick={() => setDiscountedPlayerIds(new Set())}
+                className="text-xs font-medium text-warning hover:underline flex-shrink-0"
+              >
+                Quitar
+              </button>
+            </div>
           )}
 
           {/* Filtro de periodo del ranking */}
@@ -448,6 +505,36 @@ export default function JugadoresPage() {
                 ))}
               </div>
 
+              {/* Sección de jugadores con el dinero descontado */}
+              {sortedDiscountedPlayers.length > 0 && (
+                <div className="mt-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Coins className="w-5 h-5 text-warning" />
+                    <h2 className="text-lg font-semibold text-foreground-muted">
+                      Sin su dinero en el ranking
+                    </h2>
+                    <span className="text-sm text-foreground-muted bg-background px-2 py-0.5 rounded-full">
+                      {sortedDiscountedPlayers.length}
+                    </span>
+                  </div>
+                  <div className="grid gap-2">
+                    {sortedDiscountedPlayers.map((player, index) => (
+                      <HiddenPlayerCard
+                        key={player.id}
+                        player={player}
+                        stats={getPlayerStats(player.id)}
+                        note="su dinero está descontado del resto"
+                        onEdit={openEditModal}
+                        onRestore={() =>
+                          handleTogglePlayerDiscounted(player.id)
+                        }
+                        animationDelay={`${(sortedPlayersWithGames.length + index) * 0.05}s`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Sección de jugadores ocultos del ranking */}
               {sortedHiddenPlayers.length > 0 && (
                 <div className="mt-8">
@@ -504,7 +591,10 @@ export default function JugadoresPage() {
               {/* Gráfico de evolución del ranking */}
               {playersWithGames.length > 0 && (
                 <div className="mt-8">
-                  <RankingChart hiddenPlayerIds={hiddenPlayerIds} />
+                  <RankingChart
+                    hiddenPlayerIds={hiddenPlayerIds}
+                    discountedPlayerIds={discountedPlayerIds}
+                  />
                 </div>
               )}
             </>
@@ -532,6 +622,8 @@ function SortBar({
   playersWithGames,
   hiddenPlayerIds,
   onTogglePlayerHidden,
+  discountedPlayerIds,
+  onTogglePlayerDiscounted,
 }: {
   sortBy: SortBy;
   onSortChange: (sort: SortBy) => void;
@@ -542,6 +634,8 @@ function SortBar({
   playersWithGames: Player[];
   hiddenPlayerIds: Set<string>;
   onTogglePlayerHidden: (playerId: string) => void;
+  discountedPlayerIds: Set<string>;
+  onTogglePlayerDiscounted: (playerId: string) => void;
 }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 p-4 bg-background-card rounded-xl border border-border">
@@ -586,6 +680,8 @@ function SortBar({
           playersWithGames={playersWithGames}
           hiddenPlayerIds={hiddenPlayerIds}
           onTogglePlayerHidden={onTogglePlayerHidden}
+          discountedPlayerIds={discountedPlayerIds}
+          onTogglePlayerDiscounted={onTogglePlayerDiscounted}
         />
 
         <button
@@ -704,15 +800,21 @@ function PlayersFilterMenu({
   playersWithGames,
   hiddenPlayerIds,
   onTogglePlayerHidden,
+  discountedPlayerIds,
+  onTogglePlayerDiscounted,
 }: {
   playersWithGames: Player[];
   hiddenPlayerIds: Set<string>;
   onTogglePlayerHidden: (playerId: string) => void;
+  discountedPlayerIds: Set<string>;
+  onTogglePlayerDiscounted: (playerId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const hiddenCount = playersWithGames.reduce(
-    (acc, p) => acc + (hiddenPlayerIds.has(p.id) ? 1 : 0),
+    (acc, p) =>
+      acc +
+      (hiddenPlayerIds.has(p.id) || discountedPlayerIds.has(p.id) ? 1 : 0),
     0,
   );
 
@@ -809,6 +911,67 @@ function PlayersFilterMenu({
                 );
               })}
             </div>
+          )}
+
+          {/* Modo "sin su dinero": recalcula el ranking descontando lo que
+              ganaron/perdieron los marcados, como si no hubieran jugado */}
+          {sortedPlayers.length > 0 && (
+            <>
+              <div className="border-t border-border mt-2 pt-2">
+                <p className="text-xs font-semibold text-foreground-muted px-2 py-1.5 uppercase tracking-wide flex items-center gap-1.5">
+                  <Coins className="w-3.5 h-3.5 text-warning" />
+                  Sin su dinero
+                </p>
+                <p className="text-[11px] text-foreground-muted px-2 pb-1.5 leading-snug">
+                  Recalcula el ranking como si no hubieran jugado: su dinero se
+                  descuenta del resto
+                </p>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                {sortedPlayers.map((player) => {
+                  const discounted = discountedPlayerIds.has(player.id);
+                  return (
+                    <button
+                      key={player.id}
+                      type="button"
+                      role="menuitemcheckbox"
+                      aria-checked={discounted}
+                      onClick={() => onTogglePlayerDiscounted(player.id)}
+                      className={`flex items-center justify-between gap-2 px-2.5 py-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
+                        discounted
+                          ? "bg-warning/15 text-foreground hover:bg-warning/25"
+                          : "text-foreground-muted hover:bg-background hover:text-foreground"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="w-5 h-5 rounded-full flex-shrink-0 border border-border"
+                          style={{
+                            backgroundColor: getAvatarColor(
+                              player.avatar_color,
+                            ),
+                          }}
+                        />
+                        <span className="truncate font-medium">
+                          {player.name}
+                        </span>
+                      </span>
+                      <span
+                        className={`w-5 h-5 flex items-center justify-center rounded transition-colors flex-shrink-0 ${
+                          discounted
+                            ? "bg-warning text-black"
+                            : "bg-background border-2 border-foreground-muted/60"
+                        }`}
+                      >
+                        {discounted && (
+                          <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       )}
@@ -1082,12 +1245,14 @@ function PlayerRankingCard({
 function HiddenPlayerCard({
   player,
   stats,
+  note = "oculto del ranking",
   onEdit,
   onRestore,
   animationDelay = "0s",
 }: {
   player: Player;
   stats: PlayerStats | undefined;
+  note?: string;
   onEdit: (player: Player) => void;
   onRestore: () => void;
   animationDelay?: string;
@@ -1130,7 +1295,7 @@ function HiddenPlayerCard({
             {player.name}
           </h3>
           <p className="text-xs text-foreground-muted">
-            {stats?.total_games || 0} partidas · oculto del ranking
+            {stats?.total_games || 0} partidas · {note}
           </p>
         </div>
 

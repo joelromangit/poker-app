@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import SegmentedButton from "@/components/SegmentedButton";
 import { getPlayersHistory, type PlayerHistory } from "@/lib/history";
+import { applyDiscountToHistories } from "@/lib/rankingAdjust";
 import {
   computeRankingEvolution,
   type EvolutionOptions,
@@ -79,8 +80,10 @@ function RankTooltip({
 
 export default function RankingChart({
   hiddenPlayerIds,
+  discountedPlayerIds,
 }: {
   hiddenPlayerIds: Set<string>;
+  discountedPlayerIds: Set<string>;
 }) {
   const [histories, setHistories] = useState<PlayerHistory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,9 +103,13 @@ export default function RankingChart({
     load();
   }, []);
 
+  // Descontar el dinero de los excluidos y quitar los ocultos
   const visibleHistories = useMemo(
-    () => histories.filter((h) => !hiddenPlayerIds.has(h.player.id)),
-    [histories, hiddenPlayerIds],
+    () =>
+      applyDiscountToHistories(histories, discountedPlayerIds).filter(
+        (h) => !hiddenPlayerIds.has(h.player.id),
+      ),
+    [histories, hiddenPlayerIds, discountedPlayerIds],
   );
 
   const availableYears = useMemo(() => {
