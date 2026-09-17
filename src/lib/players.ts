@@ -1,5 +1,6 @@
 import { db, Player as DbPlayer } from './supabase';
 import { computeRecentForm } from './historyStats';
+import { discountExcludedFromGame } from './rankingAdjust';
 import { Player, PlayerStats, CreatePlayerData } from '@/types';
 
 
@@ -152,14 +153,20 @@ export async function getPlayerStats(playerId: string): Promise<PlayerStats | nu
 }
 
 // Obtener estadísticas de todos los jugadores, opcionalmente limitadas a un
-// rango de fechas de partida (formato YYYY-MM-DD, ambos inclusive)
+// rango de fechas de partida (formato YYYY-MM-DD, ambos inclusive).
+// discountIds: jugadores cuyo dinero se descuenta del ranking — los profits
+// del resto se recalculan partida a partida como si no hubieran jugado
+// (los descontados conservan sus estadísticas reales para mostrarlas aparte)
 export async function getAllPlayersStats(
   from?: string,
   to?: string,
+  discountIds?: string[],
 ): Promise<PlayerStats[]> {
   const [players, { data, error }] = await Promise.all([
     getPlayers(),
-    db.from('game_players').select('player_id, profit, game:games (created_at)'),
+    db
+      .from('game_players')
+      .select('player_id, profit, game_id, game:games (created_at)'),
   ]);
 
   if (error || !data) {
@@ -170,16 +177,49 @@ export async function getAllPlayersStats(
   const fromTime = from ? new Date(`${from}T00:00:00`).getTime() : null;
   const toTime = to ? new Date(`${to}T23:59:59.999`).getTime() : null;
 
-  const rowsByPlayer = new Map<string, { profit: number; time: number }[]>();
+  type StatsRow = { playerId: string; profit: number; time: number; gameId: string };
+  const allRows: StatsRow[] = [];
   for (const gp of data) {
     if (!gp.player_id || !gp.game) continue;
     const time = new Date(gp.game.created_at).getTime();
     if (fromTime !== null && time < fromTime) continue;
     if (toTime !== null && time > toTime) continue;
+    allRows.push({ playerId: gp.player_id, profit: gp.profit, time, gameId: gp.game_id });
+  }
 
-    const rows = rowsByPlayer.get(gp.player_id);
-    if (rows) rows.push({ profit: gp.profit, time });
-    else rowsByPlayer.set(gp.player_id, [{ profit: gp.profit, time }]);
+  // Aplicar el descuento de los excluidos partida a partida
+  const discounted = new Set(discountIds ?? []);
+  let effectiveRows = allRows;
+  if (discounted.size > 0) {
+    const rowsByGame = new Map<string, StatsRow[]>();
+    for (const row of allRows) {
+      const rows = rowsByGame.get(row.gameId);
+      if (rows) rows.push(row);
+      else rowsByGame.set(row.gameId, [row]);
+    }
+
+    effectiveRows = [];
+    for (const gameRows of rowsByGame.values()) {
+      const adjusted = discountExcludedFromGame(gameRows, discounted);
+      const profitById = new Map(adjusted.map(r => [r.playerId, r.profit]));
+      for (const row of gameRows) {
+        if (discounted.has(row.playerId)) {
+          effectiveRows.push(row);
+          continue;
+        }
+        const profit = profitById.get(row.playerId);
+        // Partida descartada por el ajuste (mano a mano con un excluido)
+        if (profit === undefined) continue;
+        effectiveRows.push({ ...row, profit });
+      }
+    }
+  }
+
+  const rowsByPlayer = new Map<string, { profit: number; time: number }[]>();
+  for (const row of effectiveRows) {
+    const rows = rowsByPlayer.get(row.playerId);
+    if (rows) rows.push({ profit: row.profit, time: row.time });
+    else rowsByPlayer.set(row.playerId, [{ profit: row.profit, time: row.time }]);
   }
 
   return players.map(player => {
