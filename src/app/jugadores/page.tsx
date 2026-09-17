@@ -328,11 +328,19 @@ export default function JugadoresPage() {
             </p>
           </div>
 
-          {/* Barra de acciones */}
+          {/* Filtros y acciones del ranking */}
           {players.length > 0 && (
-            <SortBar
+            <FiltersCard
               sortBy={sortBy}
               onSortChange={setSortBy}
+              periodFilter={periodFilter}
+              onPeriodChange={setPeriodFilter}
+              availableYears={availableYears}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+              filteringStats={filteringStats}
               onWhosGay={handleWhosGay}
               onNewPlayer={() => setShowNewPlayer(true)}
               columnsVisibility={columnsVisibility}
@@ -367,68 +375,6 @@ export default function JugadoresPage() {
               >
                 Quitar
               </button>
-            </div>
-          )}
-
-          {/* Filtro de periodo del ranking */}
-          {players.length > 0 && (
-            <div className="mb-6 p-4 bg-background-card rounded-xl border border-border">
-              <div className="flex items-start gap-3 flex-wrap">
-                <span className="text-xs text-foreground-muted font-medium pt-2 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5" />
-                  Periodo
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1 bg-background rounded-lg p-1 flex-wrap w-fit">
-                    <SegmentedButton
-                      active={periodFilter === "all"}
-                      onClick={() => setPeriodFilter("all")}
-                    >
-                      Todo
-                    </SegmentedButton>
-                    {availableYears.map((year) => (
-                      <SegmentedButton
-                        key={year}
-                        active={periodFilter === year}
-                        onClick={() => setPeriodFilter(year)}
-                      >
-                        {year}
-                      </SegmentedButton>
-                    ))}
-                    <SegmentedButton
-                      active={periodFilter === "custom"}
-                      onClick={() => setPeriodFilter("custom")}
-                    >
-                      Fechas
-                    </SegmentedButton>
-                  </div>
-                  {periodFilter === "custom" && (
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <input
-                        type="date"
-                        value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
-                        className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm focus:border-primary outline-none"
-                      />
-                      <span className="text-foreground-muted text-sm">a</span>
-                      <input
-                        type="date"
-                        value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
-                        className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm focus:border-primary outline-none"
-                      />
-                    </div>
-                  )}
-                  {periodFilter !== "all" && (
-                    <p className="text-xs text-foreground-muted mt-2">
-                      El ranking muestra solo las partidas del periodo elegido
-                    </p>
-                  )}
-                </div>
-                {filteringStats && (
-                  <Loader2 className="w-4 h-4 animate-spin text-primary mt-2" />
-                )}
-              </div>
             </div>
           )}
 
@@ -612,9 +558,18 @@ export default function JugadoresPage() {
   );
 }
 
-function SortBar({
+// Tarjeta única con todos los filtros y acciones del ranking
+function FiltersCard({
   sortBy,
   onSortChange,
+  periodFilter,
+  onPeriodChange,
+  availableYears,
+  dateFrom,
+  dateTo,
+  onDateFromChange,
+  onDateToChange,
+  filteringStats,
   onWhosGay,
   onNewPlayer,
   columnsVisibility,
@@ -627,6 +582,14 @@ function SortBar({
 }: {
   sortBy: SortBy;
   onSortChange: (sort: SortBy) => void;
+  periodFilter: PeriodFilter;
+  onPeriodChange: (period: PeriodFilter) => void;
+  availableYears: number[];
+  dateFrom: string;
+  dateTo: string;
+  onDateFromChange: (value: string) => void;
+  onDateToChange: (value: string) => void;
+  filteringStats: boolean;
   onWhosGay: () => void;
   onNewPlayer: () => void;
   columnsVisibility: PlayersColumnsVisibility;
@@ -638,39 +601,89 @@ function SortBar({
   onTogglePlayerDiscounted: (playerId: string) => void;
 }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 p-4 bg-background-card rounded-xl border border-border">
-      {/* Botones de ordenación */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-sm text-foreground-muted flex items-center gap-1">
-          <ArrowUpDown className="w-4 h-4" />
-          Ordenar:
+    <div className="mb-6 p-4 bg-background-card rounded-xl border border-border space-y-3">
+      {/* Ordenar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-xs text-foreground-muted font-medium w-16 flex-shrink-0 flex items-center gap-1">
+          <ArrowUpDown className="w-3.5 h-3.5" />
+          Ordenar
         </span>
-        <button
-          type="button"
-          onClick={() => onSortChange("balance")}
-          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-            sortBy === "balance"
-              ? "bg-primary text-white"
-              : "bg-background border border-border text-foreground-muted hover:text-foreground"
-          }`}
-        >
-          💰 Balance
-        </button>
-        <button
-          type="button"
-          onClick={() => onSortChange("winrate")}
-          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-            sortBy === "winrate"
-              ? "bg-primary text-white"
-              : "bg-background border border-border text-foreground-muted hover:text-foreground"
-          }`}
-        >
-          🏆 % Victorias
-        </button>
+        <div className="flex items-center gap-1 bg-background rounded-lg p-1 w-fit">
+          <SegmentedButton
+            active={sortBy === "balance"}
+            onClick={() => onSortChange("balance")}
+          >
+            💰 Balance
+          </SegmentedButton>
+          <SegmentedButton
+            active={sortBy === "winrate"}
+            onClick={() => onSortChange("winrate")}
+          >
+            🏆 % Victorias
+          </SegmentedButton>
+        </div>
       </div>
 
-      {/* Botones de acción */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* Periodo */}
+      <div className="flex items-start gap-3 flex-wrap">
+        <span className="text-xs text-foreground-muted font-medium w-16 flex-shrink-0 flex items-center gap-1 pt-2">
+          <Calendar className="w-3.5 h-3.5" />
+          Periodo
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1 bg-background rounded-lg p-1 flex-wrap w-fit">
+            <SegmentedButton
+              active={periodFilter === "all"}
+              onClick={() => onPeriodChange("all")}
+            >
+              Todo
+            </SegmentedButton>
+            {availableYears.map((year) => (
+              <SegmentedButton
+                key={year}
+                active={periodFilter === year}
+                onClick={() => onPeriodChange(year)}
+              >
+                {year}
+              </SegmentedButton>
+            ))}
+            <SegmentedButton
+              active={periodFilter === "custom"}
+              onClick={() => onPeriodChange("custom")}
+            >
+              Fechas
+            </SegmentedButton>
+          </div>
+          {periodFilter === "custom" && (
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => onDateFromChange(e.target.value)}
+                className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm focus:border-primary outline-none"
+              />
+              <span className="text-foreground-muted text-sm">a</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => onDateToChange(e.target.value)}
+                className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm focus:border-primary outline-none"
+              />
+            </div>
+          )}
+          {periodFilter !== "all" && (
+            <p className="text-xs text-foreground-muted mt-2">
+              El ranking muestra solo las partidas del periodo elegido
+            </p>
+          )}
+        </div>
+        {filteringStats && (
+          <Loader2 className="w-4 h-4 animate-spin text-primary mt-2" />
+        )}
+      </div>
+
+      {/* Acciones */}
+      <div className="flex items-center gap-2 flex-wrap pt-3 border-t border-border">
         <ColumnsMenu
           columnsVisibility={columnsVisibility}
           onToggleColumn={onToggleColumn}
@@ -714,52 +727,53 @@ function ColumnsMenu({
   onToggleColumn: (key: PlayerColumnKey) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const visibleCount = PLAYERS_COLUMNS_META.reduce(
     (acc, { key }) => acc + (columnsVisibility[key] ? 1 : 0),
     0,
   );
 
-  useEffect(() => {
-    if (!open) return;
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
-
   return (
-    <div className="relative" ref={containerRef}>
+    <>
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        aria-haspopup="menu"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
         aria-expanded={open}
-        className="px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 bg-primary text-white font-medium hover:opacity-90 transition-opacity shadow-sm"
+        className="px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 bg-background border border-border text-foreground font-medium hover:border-primary/50 transition-colors"
       >
-        <SlidersHorizontal className="w-4 h-4" />
+        <SlidersHorizontal className="w-4 h-4 text-primary" />
         <span>Columnas</span>
-        <span className="ml-1 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-white/20 text-xs font-semibold">
+        <span className="ml-0.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-primary/15 text-primary text-xs font-semibold">
           {visibleCount}
         </span>
       </button>
 
+      {/* Modal centrado (bottom sheet en móvil): un desplegable anclado se
+          corta en pantallas pequeñas */}
       {open && (
         <div
-          role="menu"
-          className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] z-20 bg-background-card border border-border rounded-xl shadow-lg p-2 animate-fade-in"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
+          onClick={() => setOpen(false)}
         >
-          <p className="text-xs font-semibold text-foreground-muted px-2 py-1.5 uppercase tracking-wide">
-            Mostrar columnas
-          </p>
-          <div className="flex flex-col gap-0.5">
-            {PLAYERS_COLUMNS_META.map(({ key, label }) => {
+          <div
+            className="w-full sm:max-w-md bg-background-card border border-border rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[75vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex-shrink-0 border-b border-border p-4 flex items-center justify-between">
+              <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <SlidersHorizontal className="w-4 h-4 text-primary" />
+                Mostrar columnas
+              </span>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="px-4 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                Listo
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto overscroll-contain p-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] flex flex-col gap-0.5">
+              {PLAYERS_COLUMNS_META.map(({ key, label }) => {
               const checked = columnsVisibility[key];
               return (
                 <button
@@ -789,10 +803,11 @@ function ColumnsMenu({
                 </button>
               );
             })}
+            </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -810,7 +825,6 @@ function PlayersFilterMenu({
   onTogglePlayerDiscounted: (playerId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const hiddenCount = playersWithGames.reduce(
     (acc, p) =>
       acc +
@@ -818,50 +832,57 @@ function PlayersFilterMenu({
     0,
   );
 
-  useEffect(() => {
-    if (!open) return;
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
-
   const sortedPlayers = [...playersWithGames].sort((a, b) =>
     a.name.localeCompare(b.name),
   );
 
   return (
-    <div className="relative" ref={containerRef}>
+    <>
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        aria-haspopup="menu"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
         aria-expanded={open}
-        className="px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 bg-primary text-white font-medium hover:opacity-90 transition-opacity shadow-sm"
+        className="px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 bg-background border border-border text-foreground font-medium hover:border-primary/50 transition-colors"
       >
-        <EyeOff className="w-4 h-4" />
+        <EyeOff className="w-4 h-4 text-primary" />
         <span>Jugadores</span>
         {hiddenCount > 0 && (
-          <span className="ml-1 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-white/20 text-xs font-semibold">
+          <span className="ml-0.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-primary/15 text-primary text-xs font-semibold">
             {hiddenCount}
           </span>
         )}
       </button>
 
+      {/* Modal centrado (bottom sheet en móvil): un desplegable anclado se
+          corta en pantallas pequeñas */}
       {open && (
         <div
-          role="menu"
-          className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] max-h-[60vh] overflow-y-auto z-20 bg-background-card border border-border rounded-xl shadow-lg p-2 animate-fade-in"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
+          onClick={() => setOpen(false)}
         >
-          <p className="text-xs font-semibold text-foreground-muted px-2 py-1.5 uppercase tracking-wide">
-            Incluir en el ranking
-          </p>
+          <div
+            className="w-full sm:max-w-md bg-background-card border border-border rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[75vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex-shrink-0 border-b border-border p-4 flex items-center justify-between">
+              <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <EyeOff className="w-4 h-4 text-primary" />
+                Filtrar jugadores
+              </span>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="px-4 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                Listo
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto overscroll-contain p-2 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
+              <p className="text-xs font-semibold text-foreground-muted px-2 py-1.5 uppercase tracking-wide">
+                Incluir en el ranking
+              </p>
           {sortedPlayers.length === 0 ? (
             <p className="px-2 py-3 text-sm text-foreground-muted">
               No hay jugadores con partidas
@@ -973,9 +994,11 @@ function PlayersFilterMenu({
               </div>
             </>
           )}
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
