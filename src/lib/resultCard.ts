@@ -14,11 +14,19 @@ export interface ResultCardPayment {
   amount: number;
 }
 
+// Píldora de filtro activo bajo el subtítulo (p. ej. "Año 2026")
+export interface ResultCardChip {
+  label: string;
+  tone?: "default" | "warning";
+}
+
 export interface ResultCardData {
   title: string;
   subtitle: string;
   rows: ResultCardRow[];
   payments: ResultCardPayment[];
+  chips?: ResultCardChip[];
+  footnote?: string; // nota pequeña sobre el pie (p. ej. aviso de aproximación)
 }
 
 const WIDTH = 1080;
@@ -76,22 +84,67 @@ function drawAvatar(
   ctx.fillText(name.charAt(0).toUpperCase(), x, y + 2);
 }
 
+// Posiciones de las píldoras de filtros, calculadas antes de pintar para
+// poder dimensionar el lienzo (pueden ocupar varias líneas)
+interface ChipLayout {
+  chip: ResultCardChip;
+  x: number;
+  line: number;
+  width: number;
+}
+
+const CHIP_FONT = `28px ${FONT}`;
+const CHIP_HEIGHT = 56;
+const CHIP_GAP = 16;
+const CHIP_PAD_X = 26;
+
+function layoutChips(
+  ctx: CanvasRenderingContext2D,
+  chips: ResultCardChip[],
+): { layouts: ChipLayout[]; lines: number } {
+  ctx.font = CHIP_FONT;
+  const layouts: ChipLayout[] = [];
+  let x = PAD;
+  let line = 0;
+  for (const chip of chips) {
+    const width = ctx.measureText(chip.label).width + CHIP_PAD_X * 2;
+    if (x + width > WIDTH - PAD && x > PAD) {
+      line += 1;
+      x = PAD;
+    }
+    layouts.push({ chip, x, line, width });
+    x += width + CHIP_GAP;
+  }
+  return { layouts, lines: chips.length > 0 ? line + 1 : 0 };
+}
+
 // Pintar la tarjeta y devolver el canvas
 export function renderResultCard(data: ResultCardData): HTMLCanvasElement {
   const rowHeight = 96;
   const paymentHeight = 84;
-  const headerHeight = 240;
   const paymentsHeader = data.payments.length > 0 ? 110 : 0;
   const footerHeight = 110;
+  const footnoteHeight = data.footnote ? 64 : 0;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = WIDTH;
+  const measureCtx = canvas.getContext("2d");
+  if (!measureCtx) return canvas;
+  const { layouts: chipLayouts, lines: chipLines } = layoutChips(
+    measureCtx,
+    data.chips ?? [],
+  );
+  const chipsHeight = chipLines * (CHIP_HEIGHT + CHIP_GAP);
+  const headerHeight = 240 + chipsHeight;
+
   const height =
     headerHeight +
     data.rows.length * rowHeight +
     paymentsHeader +
     data.payments.length * paymentHeight +
+    footnoteHeight +
     footerHeight;
 
-  const canvas = document.createElement("canvas");
-  canvas.width = WIDTH;
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) return canvas;
@@ -117,6 +170,26 @@ export function renderResultCard(data: ResultCardData): HTMLCanvasElement {
   ctx.fillStyle = COLORS.muted;
   ctx.font = `32px ${FONT}`;
   ctx.fillText(data.subtitle, PAD, 216, WIDTH - PAD * 2);
+
+  // Píldoras con los filtros activos
+  for (const { chip, x, line, width } of chipLayouts) {
+    const chipY = 244 + line * (CHIP_HEIGHT + CHIP_GAP);
+    const warning = chip.tone === "warning";
+    ctx.beginPath();
+    ctx.roundRect(x, chipY, width, CHIP_HEIGHT, CHIP_HEIGHT / 2);
+    ctx.fillStyle = warning ? "rgba(251, 191, 36, 0.14)" : COLORS.card;
+    ctx.fill();
+    ctx.strokeStyle = warning ? "rgba(251, 191, 36, 0.55)" : COLORS.border;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = warning ? COLORS.accent : COLORS.muted;
+    ctx.font = CHIP_FONT;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(chip.label, x + CHIP_PAD_X, chipY + CHIP_HEIGHT / 2 + 1);
+  }
+  ctx.textBaseline = "alphabetic";
 
   // Filas del ranking
   let y = headerHeight;
@@ -208,6 +281,15 @@ export function renderResultCard(data: ResultCardData): HTMLCanvasElement {
 
       y += paymentHeight;
     }
+  }
+
+  // Nota al pie (p. ej. aviso de que el reparto es una aproximación)
+  if (data.footnote) {
+    ctx.fillStyle = COLORS.accent;
+    ctx.font = `italic 26px ${FONT}`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(data.footnote, PAD, height - footerHeight - 18, WIDTH - PAD * 2);
   }
 
   // Pie

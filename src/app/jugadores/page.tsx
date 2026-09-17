@@ -12,6 +12,7 @@ import {
   Pencil,
   Plus,
   Rainbow,
+  Share2,
   SlidersHorizontal,
   TrendingDown,
   TrendingUp,
@@ -40,6 +41,7 @@ import {
   savePlayersColumnsVisibility,
   saveRankingHiddenPlayerIds,
 } from "@/lib/preferences";
+import { type ResultCardChip, shareResultCard } from "@/lib/resultCard";
 import type { Player, PlayerStats } from "@/types";
 import { EditPlayerModal, NewPlayerModal, WhosGayModal } from "./modals";
 import RankingChart from "./RankingChart";
@@ -305,6 +307,79 @@ export default function JugadoresPage() {
     setShowGayModal(true);
   };
 
+  // Compartir el ranking como imagen, reflejando los filtros activos
+  const [sharing, setSharing] = useState(false);
+  const handleShareRanking = async () => {
+    if (sharing || sortedPlayersWithGames.length === 0) return;
+    setSharing(true);
+
+    const periodLabel =
+      periodFilter === "all"
+        ? "Histórico completo"
+        : periodFilter === "custom"
+          ? `${
+              dateFrom
+                ? new Date(`${dateFrom}T00:00:00`).toLocaleDateString("es-ES")
+                : "El principio"
+            } — ${
+              dateTo
+                ? new Date(`${dateTo}T00:00:00`).toLocaleDateString("es-ES")
+                : "hoy"
+            }`
+          : `Año ${periodFilter}`;
+
+    const chips: ResultCardChip[] = [];
+    if (periodFilter !== "all") chips.push({ label: `📅 ${periodLabel}` });
+    if (sortBy === "winrate")
+      chips.push({ label: "🏆 Ordenado por % victorias" });
+    if (sortedHiddenPlayers.length > 0) {
+      chips.push({
+        label: `🙈 Sin mostrar (su dinero cuenta): ${sortedHiddenPlayers
+          .map((p) => p.name)
+          .join(", ")}`,
+      });
+    }
+    const discountedNames = players
+      .filter((p) => discountedPlayerIds.has(p.id))
+      .map((p) => p.name);
+    if (discountedNames.length > 0) {
+      chips.push({
+        label: `🪙 Sin el dinero de ${discountedNames.join(", ")}`,
+        tone: "warning",
+      });
+    }
+
+    await shareResultCard(
+      {
+        title: "Ranking de Jugadores",
+        subtitle: `${periodLabel} · ${new Date().toLocaleDateString("es-ES", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })}`,
+        rows: sortedPlayersWithGames.map((player) => {
+          const playerStats = stats.get(player.id);
+          return {
+            name: player.name,
+            color: getAvatarColor(player.avatar_color),
+            profit: playerStats?.total_balance || 0,
+            sub: `${playerStats?.total_games || 0} partidas · ${(
+              playerStats?.win_rate || 0
+            ).toFixed(0)}% victorias`,
+          };
+        }),
+        payments: [],
+        chips,
+        footnote:
+          discountedNames.length > 0
+            ? "* El reparto sin su dinero es una aproximación, no un cálculo exacto"
+            : undefined,
+      },
+      "ranking-poker.png",
+    );
+    setSharing(false);
+  };
+
   const handleViewGames = (playerName: string) => {
     router.push(`/?jugador=${encodeURIComponent(playerName)}`);
   };
@@ -342,6 +417,8 @@ export default function JugadoresPage() {
               onDateToChange={setDateTo}
               filteringStats={filteringStats}
               onWhosGay={handleWhosGay}
+              onShare={handleShareRanking}
+              sharing={sharing}
               onNewPlayer={() => setShowNewPlayer(true)}
               columnsVisibility={columnsVisibility}
               onToggleColumn={handleToggleColumn}
@@ -366,7 +443,8 @@ export default function JugadoresPage() {
                     .join(", ")}
                 </span>
                 : sus ganancias y pérdidas se reparten proporcionalmente entre
-                el resto, como si no hubieran jugado.
+                el resto, como si no hubieran jugado. El reparto es una
+                aproximación, no un cálculo exacto.
               </p>
               <button
                 type="button"
@@ -481,18 +559,22 @@ export default function JugadoresPage() {
                 </div>
               )}
 
-              {/* Sección de jugadores ocultos del ranking */}
+              {/* Sección de jugadores ocultos del ranking (solo visual) */}
               {sortedHiddenPlayers.length > 0 && (
                 <div className="mt-8">
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center gap-2 mb-1">
                     <EyeOff className="w-5 h-5 text-foreground-muted" />
                     <h2 className="text-lg font-semibold text-foreground-muted">
-                      Excluidos del ranking
+                      Ocultos del ranking
                     </h2>
                     <span className="text-sm text-foreground-muted bg-background px-2 py-0.5 rounded-full">
                       {sortedHiddenPlayers.length}
                     </span>
                   </div>
+                  <p className="text-xs text-foreground-muted mb-4 ml-7">
+                    No se muestran para dejar el ranking más limpio, pero su
+                    dinero sí cuenta en los resultados de los demás
+                  </p>
                   <div className="grid gap-2">
                     {sortedHiddenPlayers.map((player, index) => (
                       <HiddenPlayerCard
@@ -571,6 +653,8 @@ function FiltersCard({
   onDateToChange,
   filteringStats,
   onWhosGay,
+  onShare,
+  sharing,
   onNewPlayer,
   columnsVisibility,
   onToggleColumn,
@@ -591,6 +675,8 @@ function FiltersCard({
   onDateToChange: (value: string) => void;
   filteringStats: boolean;
   onWhosGay: () => void;
+  onShare: () => void;
+  sharing: boolean;
   onNewPlayer: () => void;
   columnsVisibility: PlayersColumnsVisibility;
   onToggleColumn: (key: PlayerColumnKey) => void;
@@ -696,6 +782,20 @@ function FiltersCard({
           discountedPlayerIds={discountedPlayerIds}
           onTogglePlayerDiscounted={onTogglePlayerDiscounted}
         />
+
+        <button
+          type="button"
+          onClick={onShare}
+          disabled={sharing}
+          className="px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 bg-background border border-border text-foreground font-medium hover:border-primary/50 transition-colors disabled:opacity-60"
+        >
+          {sharing ? (
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          ) : (
+            <Share2 className="w-4 h-4 text-primary" />
+          )}
+          <span>Compartir</span>
+        </button>
 
         <button
           type="button"
@@ -882,6 +982,10 @@ function PlayersFilterMenu({
             <div className="flex-1 overflow-y-auto overscroll-contain p-2 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
               <p className="text-xs font-semibold text-foreground-muted px-2 py-1.5 uppercase tracking-wide">
                 Incluir en el ranking
+              </p>
+              <p className="text-[11px] text-foreground-muted px-2 pb-1.5 leading-snug">
+                Los desmarcados solo se ocultan: su dinero sigue contando en
+                los resultados de los demás
               </p>
           {sortedPlayers.length === 0 ? (
             <p className="px-2 py-3 text-sm text-foreground-muted">
@@ -1268,7 +1372,7 @@ function PlayerRankingCard({
 function HiddenPlayerCard({
   player,
   stats,
-  note = "oculto del ranking",
+  note = "oculto del ranking · su dinero sí cuenta",
   onEdit,
   onRestore,
   animationDelay = "0s",
