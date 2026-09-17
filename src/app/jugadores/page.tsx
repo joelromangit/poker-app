@@ -332,19 +332,17 @@ export default function JugadoresPage() {
     if (periodFilter !== "all") chips.push({ label: `📅 ${periodLabel}` });
     if (sortBy === "winrate")
       chips.push({ label: "🏆 Ordenado por % victorias" });
-    if (sortedHiddenPlayers.length > 0) {
-      chips.push({
-        label: `🙈 Sin mostrar (su dinero cuenta): ${sortedHiddenPlayers
-          .map((p) => p.name)
-          .join(", ")}`,
-      });
-    }
     const discountedNames = players
       .filter((p) => discountedPlayerIds.has(p.id))
       .map((p) => p.name);
     if (discountedNames.length > 0) {
+      // Con muchos nombres, resumir para que la píldora quepa en la imagen
+      const namesLabel =
+        discountedNames.length <= 3
+          ? discountedNames.join(", ")
+          : `${discountedNames.slice(0, 3).join(", ")} y ${discountedNames.length - 3} más`;
       chips.push({
-        label: `🪙 Sin el dinero de ${discountedNames.join(", ")}`,
+        label: `🪙 Sin el dinero de ${namesLabel}`,
         tone: "warning",
       });
     }

@@ -103,16 +103,25 @@ function layoutChips(
   chips: ResultCardChip[],
 ): { layouts: ChipLayout[]; lines: number } {
   ctx.font = CHIP_FONT;
+  const maxWidth = WIDTH - PAD * 2;
   const layouts: ChipLayout[] = [];
   let x = PAD;
   let line = 0;
   for (const chip of chips) {
-    const width = ctx.measureText(chip.label).width + CHIP_PAD_X * 2;
+    // Truncar con "…" cualquier etiqueta que no quepa en el ancho de la
+    // tarjeta, para que la píldora nunca se salga de la imagen
+    let label = chip.label;
+    let width = ctx.measureText(label).width + CHIP_PAD_X * 2;
+    while (width > maxWidth && label.length > 1) {
+      label = `${label.slice(0, -2).trimEnd()}…`;
+      width = ctx.measureText(label).width + CHIP_PAD_X * 2;
+    }
+
     if (x + width > WIDTH - PAD && x > PAD) {
       line += 1;
       x = PAD;
     }
-    layouts.push({ chip, x, line, width });
+    layouts.push({ chip: { ...chip, label }, x, line, width });
     x += width + CHIP_GAP;
   }
   return { layouts, lines: chips.length > 0 ? line + 1 : 0 };
